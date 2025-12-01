@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Societies from './components/Societies';
@@ -19,9 +19,16 @@ import PaymentVouchers from './components/PaymentVouchers';
 import Templates from './components/Templates';
 import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income } from './types';
 import { MOCK_BILLS, MOCK_EXPENSES, MOCK_NOTICES, MOCK_RESIDENTS, MOCK_SOCIETIES, MOCK_MINUTES, MOCK_INCOME } from './constants';
+import { Clock } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   
   // Centralized State (Simulating Database)
   const [societies, setSocieties] = useState<Society[]>(MOCK_SOCIETIES);
@@ -248,9 +255,9 @@ const App: React.FC = () => {
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar currentView={currentView} onChangeView={setCurrentView} />
       
-      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
-        <header className="flex justify-between items-center mb-8">
-          <div>
+      <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen relative">
+        <header className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-center mb-6 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-100 transition-all">
+          <div className="mb-4 md:mb-0">
             <h2 className="text-2xl font-bold text-slate-800">
               {currentView === 'AI_INSIGHTS' ? 'AI Analysis & Insights' : 
                currentView === 'SOCIETIES' ? 'My Societies' :
@@ -264,18 +271,38 @@ const App: React.FC = () => {
             </h2>
             <p className="text-slate-500 text-sm">Welcome back, Admin</p>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden md:block">
-              <p className="text-sm font-semibold text-slate-800">{activeSociety.name}</p>
-              <p className="text-xs text-slate-500">Reg: {activeSociety.registrationNumber || 'N/A'}</p>
+          
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            {/* Live Time & Date */}
+            <div className="flex items-center gap-3 text-right bg-slate-50 px-4 py-2 rounded-lg border border-slate-100 w-full md:w-auto justify-center md:justify-end">
+                <Clock className="text-indigo-600" size={24} />
+                <div>
+                  <p className="text-xl font-bold text-slate-700 leading-none">
+                    {currentTime.toLocaleTimeString([], { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </p>
+                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mt-1">
+                    {currentTime.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
             </div>
-            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-200">
-              {activeSociety.name.substring(0, 2).toUpperCase()}
+
+            <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                <div className="text-right hidden md:block">
+                <p className="text-sm font-semibold text-slate-800">{activeSociety.name}</p>
+                <p className="text-xs text-slate-500">Reg: {activeSociety.registrationNumber || 'N/A'}</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-200 shadow-sm shrink-0">
+                {activeSociety.name.substring(0, 2).toUpperCase()}
+                </div>
             </div>
           </div>
         </header>
         
-        {renderContent()}
+        <div className="pb-8">
+            {renderContent()}
+        </div>
       </main>
     </div>
   );
