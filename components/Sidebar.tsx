@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ViewState } from '../types';
-import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket } from 'lucide-react';
+import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket, FileType } from 'lucide-react';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -22,9 +22,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { view: 'STATEMENTS', label: 'Statements', icon: ClipboardList },
     { view: 'BANK_RECONCILIATION', label: 'Bank Reconciliation', icon: Landmark },
     { view: 'STATUTORY_REGISTERS', label: 'Statutory Registers', icon: BookCopy },
-    { view: 'REPORTS', label: 'Balance Sheet', icon: FileBarChart },
+    { view: 'REPORTS', label: 'Reports', icon: FileBarChart },
     { view: 'MINUTES', label: 'Minutes', icon: BookOpen },
     { view: 'NOTICES', label: 'Notices', icon: Bell },
+    { view: 'TEMPLATES', label: 'Templates', icon: FileType },
     { view: 'AI_INSIGHTS', label: 'AI Insights', icon: BrainCircuit },
   ];
 
@@ -37,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         <p className="text-xs text-slate-400 mt-1">Estate Management OS</p>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.view;
@@ -45,13 +46,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
             <button
               key={item.view}
               onClick={() => onChangeView(item.view)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
                 isActive 
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' 
                   : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
               }`}
             >
-              <Icon size={20} />
+              <Icon size={18} />
               <span className="font-medium">{item.label}</span>
             </button>
           );

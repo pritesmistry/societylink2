@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Expense } from '../types';
 import { EXPENSE_CATEGORIES } from '../constants';
 import { Plus, Tag, Calendar, User } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface ExpensesProps {
   expenses: Expense[];
@@ -33,6 +34,10 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense }
 
   return (
     <div className="space-y-6">
+      <StandardToolbar 
+        onSave={() => setIsModalOpen(true)}
+      />
+
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold text-slate-800">Expense Ledger</h2>
         <button 

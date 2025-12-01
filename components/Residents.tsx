@@ -1,6 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { Resident } from '../types';
 import { Search, Plus, Mail, Phone, Upload, Download, Info, Edit, Trash2, Ruler, Wallet } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface ResidentsProps {
   residents: Resident[];
@@ -26,6 +28,7 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
   const [editingId, setEditingId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredResidents = residents.filter(r => 
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -152,10 +155,16 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <StandardToolbar 
+        onSave={handleOpenAddModal}
+        onSearch={() => searchInputRef.current?.focus()}
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="relative w-full md:w-64">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
           <input 
+            ref={searchInputRef}
             type="text" 
             placeholder="Search members..." 
             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"

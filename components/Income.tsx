@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Income } from '../types';
 import { INCOME_CATEGORIES } from '../constants';
 import { Plus, Tag, Calendar, User, TrendingUp } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface IncomeProps {
   incomes: Income[];
@@ -39,6 +40,10 @@ const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome 
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <StandardToolbar 
+        onSave={() => setIsModalOpen(true)}
+      />
+
       <div className="flex justify-between items-center">
         <div>
             <h2 className="text-xl font-semibold text-slate-800">Other Income Register</h2>

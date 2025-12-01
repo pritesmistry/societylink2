@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { MeetingMinutes, Society } from '../types';
 import { generateMinutesFromNotes } from '../services/geminiService';
 import { Plus, Download, Calendar, Users, FileText, Sparkles, Loader2, Trash2 } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface MinutesProps {
   minutesList: MeetingMinutes[];
@@ -108,6 +109,10 @@ const Minutes: React.FC<MinutesProps> = ({ minutesList, activeSociety, onAddMinu
 
   return (
     <div className="space-y-6 animate-fade-in">
+        <StandardToolbar 
+            onSave={() => setIsModalOpen(true)}
+        />
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h2 className="text-xl font-semibold text-slate-800">Meeting Minutes</h2>

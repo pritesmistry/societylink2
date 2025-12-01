@@ -16,6 +16,7 @@ import Statements from './components/Statements';
 import BankReconciliation from './components/BankReconciliation';
 import StatutoryRegisters from './components/StatutoryRegisters';
 import PaymentVouchers from './components/PaymentVouchers';
+import Templates from './components/Templates';
 import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income } from './types';
 import { MOCK_BILLS, MOCK_EXPENSES, MOCK_NOTICES, MOCK_RESIDENTS, MOCK_SOCIETIES, MOCK_MINUTES, MOCK_INCOME } from './constants';
 
@@ -221,7 +222,7 @@ const App: React.FC = () => {
             />
         );
       case 'REPORTS':
-        return <Reports bills={activeBills} expenses={activeExpenses} residents={activeResidents} activeSociety={activeSociety} />;
+        return <Reports bills={activeBills} expenses={activeExpenses} residents={activeResidents} activeSociety={activeSociety} incomes={activeIncomes} />;
       case 'MINUTES':
         return (
             <Minutes 
@@ -233,6 +234,8 @@ const App: React.FC = () => {
         );
       case 'NOTICES':
         return <Notices notices={activeNotices} societyId={activeSocietyId} onAddNotice={handleAddNotice} />;
+      case 'TEMPLATES':
+        return <Templates />;
       case 'AI_INSIGHTS':
         return <AIInsights bills={activeBills} expenses={activeExpenses} />;
       default:
@@ -255,6 +258,7 @@ const App: React.FC = () => {
                currentView === 'RESIDENTS' ? 'Members' :
                currentView === 'INCOME' ? 'Other Income' :
                currentView === 'VOUCHERS' ? 'Payment Vouchers' :
+               currentView === 'TEMPLATES' ? 'Templates' :
                currentView.charAt(0) + currentView.slice(1).toLowerCase().replace('_', ' ')}
             </h2>
             <p className="text-slate-500 text-sm">Welcome back, Admin</p>

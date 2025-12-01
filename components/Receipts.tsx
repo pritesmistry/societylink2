@@ -1,6 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { Bill, Society, PaymentStatus } from '../types';
 import { Search, Download, Eye, Calendar, Upload, FileText } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface ReceiptsProps {
   bills: Bill[];
@@ -136,6 +138,10 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <StandardToolbar 
+        onSearch={() => alert("Use the search bar below")}
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h2 className="text-xl font-semibold text-slate-800">Payment Receipts</h2>

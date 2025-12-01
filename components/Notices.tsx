@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Notice } from '../types';
 import { generateNoticeDraft } from '../services/geminiService';
 import { Bell, Sparkles, Loader2 } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface NoticesProps {
   notices: Notice[];
@@ -50,6 +51,10 @@ const Notices: React.FC<NoticesProps> = ({ notices, societyId, onAddNotice }) =>
 
   return (
     <div className="space-y-6">
+      <StandardToolbar 
+        onSave={() => setIsDrafting(true)}
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-xl font-semibold text-slate-800">Digital Notice Board</h2>
         <button 

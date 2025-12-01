@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Society } from '../types';
 import { Plus, Building2, MapPin, Phone, Mail, CheckCircle, CreditCard, FileText, Trash2, Edit } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface SocietiesProps {
   societies: Society[];
@@ -62,6 +63,10 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <StandardToolbar 
+        onSave={handleOpenAddModal}
+      />
+
       <div className="flex justify-between items-center">
         <div>
             <h2 className="text-xl font-semibold text-slate-800">Society Management</h2>

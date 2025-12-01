@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { Expense, Society } from '../types';
 import { EXPENSE_CATEGORIES } from '../constants';
-import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen } from 'lucide-react';
+import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface PaymentVouchersProps {
   expenses: Expense[];
@@ -17,7 +18,7 @@ declare global {
 }
 
 const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSociety, onAddExpense }) => {
-  const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'JOURNAL'>('CASH');
+  const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'JOURNAL' | 'DEBIT_NOTE' | 'CREDIT_NOTE'>('CASH');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Expense | null>(null);
@@ -31,6 +32,8 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
   const filteredExpenses = expenses.filter(e => {
       if (activeTab === 'CASH') return e.paymentMode === 'Cash';
       if (activeTab === 'JOURNAL') return e.paymentMode === 'Journal';
+      if (activeTab === 'DEBIT_NOTE') return e.paymentMode === 'Debit Note';
+      if (activeTab === 'CREDIT_NOTE') return e.paymentMode === 'Credit Note';
       return e.paymentMode === 'Cheque' || e.paymentMode === 'Online';
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -38,6 +41,8 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
       let defaultMode = 'Cash';
       if (activeTab === 'BANK') defaultMode = 'Cheque';
       if (activeTab === 'JOURNAL') defaultMode = 'Journal';
+      if (activeTab === 'DEBIT_NOTE') defaultMode = 'Debit Note';
+      if (activeTab === 'CREDIT_NOTE') defaultMode = 'Credit Note';
 
       setFormData({
         paymentMode: defaultMode as any,
@@ -94,41 +99,59 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h2 className="text-xl font-semibold text-slate-800">Voucher Management</h2>
-           <p className="text-sm text-slate-500 mt-1">Create and print formal Cash, Bank, and Journal vouchers.</p>
+           <p className="text-sm text-slate-500 mt-1">Cash, Bank, Journal, Debit & Credit Notes.</p>
         </div>
       </div>
+      
+      <StandardToolbar 
+        onSave={handleOpenModal} 
+        onPrint={() => alert("Select a voucher to print")}
+        onSearch={() => {}}
+      />
 
       <div className="flex gap-2 border-b border-slate-200 pb-1 flex-wrap">
           <button 
             onClick={() => setActiveTab('CASH')}
-            className={`px-4 md:px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CASH' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CASH' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
-              <Banknote size={18} /> Cash Vouchers
+              <Banknote size={16} /> Cash
           </button>
           <button 
             onClick={() => setActiveTab('BANK')}
-            className={`px-4 md:px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'BANK' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'BANK' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
-              <Building size={18} /> Bank Vouchers
+              <Building size={16} /> Bank
           </button>
           <button 
             onClick={() => setActiveTab('JOURNAL')}
-            className={`px-4 md:px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'JOURNAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'JOURNAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
-              <BookOpen size={18} /> Journal Vouchers
+              <BookOpen size={16} /> Journal
+          </button>
+          <button 
+            onClick={() => setActiveTab('DEBIT_NOTE')}
+            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'DEBIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <ArrowUpRight size={16} /> Debit Note
+          </button>
+          <button 
+            onClick={() => setActiveTab('CREDIT_NOTE')}
+            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CREDIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <ArrowDownLeft size={16} /> Credit Note
           </button>
       </div>
 
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
            <div className="text-sm text-slate-500">
-               Showing {filteredExpenses.length} {activeTab.toLowerCase()} vouchers
+               Showing {filteredExpenses.length} records
            </div>
            <button 
             onClick={handleOpenModal}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-md"
            >
             <Plus size={18} />
-            Create {activeTab === 'CASH' ? 'Cash' : activeTab === 'BANK' ? 'Bank' : 'Journal'} Voucher
+            Create {activeTab.replace('_', ' ')}
            </button>
       </div>
 
@@ -144,7 +167,7 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
                   <h3 className="font-semibold text-slate-800 mb-1">{voucher.vendor}</h3>
                   <div className="flex gap-2 mb-2">
                       <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{voucher.category}</span>
-                      {voucher.paymentMode === 'Journal' && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold">JV</span>}
+                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold">{voucher.paymentMode}</span>
                   </div>
                   <p className="text-sm text-slate-500 mb-4 line-clamp-2">{voucher.description}</p>
                   
@@ -170,11 +193,11 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-bold mb-4">Create {activeTab === 'CASH' ? 'Cash' : activeTab === 'BANK' ? 'Bank' : 'Journal'} Voucher</h2>
+            <h2 className="text-xl font-bold mb-4 capitalize">Create {activeTab.toLowerCase().replace('_', ' ')}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {activeTab === 'JOURNAL' ? 'Credit Ledger (Vendor/Payable)' : 'Payee Name (Vendor)'}
+                    {(activeTab === 'JOURNAL' || activeTab === 'DEBIT_NOTE' || activeTab === 'CREDIT_NOTE') ? 'Party / Ledger Name' : 'Payee Name (Vendor)'}
                 </label>
                 <input 
                   type="text" 
@@ -209,7 +232,7 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {activeTab === 'JOURNAL' ? 'Debit Ledger (Category)' : 'Category'}
+                    {(activeTab === 'JOURNAL' || activeTab === 'DEBIT_NOTE' || activeTab === 'CREDIT_NOTE') ? 'Contra / Category' : 'Category'}
                 </label>
                 <select 
                   className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
@@ -225,7 +248,7 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {activeTab === 'JOURNAL' ? 'Narration' : 'Description / Towards'}
+                    {(activeTab === 'JOURNAL' || activeTab === 'DEBIT_NOTE') ? 'Narration' : 'Description / Towards'}
                 </label>
                 <textarea 
                   rows={2}
@@ -257,17 +280,6 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
                             onChange={e => setFormData({...formData, bankName: e.target.value})}
                         />
                       </div>
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Mode</label>
-                        <select 
-                            className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={formData.paymentMode}
-                            onChange={e => setFormData({...formData, paymentMode: e.target.value as any})}
-                        >
-                            <option value="Cheque">Cheque</option>
-                            <option value="Online">Online / NEFT</option>
-                        </select>
-                      </div>
                   </div>
               )}
               
@@ -283,7 +295,7 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
                   type="submit"
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                 >
-                  Create Voucher
+                  Save Voucher
                 </button>
               </div>
             </form>
@@ -321,9 +333,7 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
                               <h1 className="text-2xl font-bold uppercase tracking-widest">{activeSociety.name}</h1>
                               <p className="text-sm italic">{activeSociety.address}</p>
                               <div className="mt-4 inline-block bg-slate-800 text-white px-6 py-1 font-bold text-lg uppercase">
-                                  {selectedVoucher.paymentMode === 'Cash' ? 'Cash Voucher' : 
-                                   selectedVoucher.paymentMode === 'Journal' ? 'Journal Voucher' : 
-                                   'Bank Payment Voucher'}
+                                  {selectedVoucher.paymentMode} Voucher
                               </div>
                           </div>
 
@@ -332,19 +342,18 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
                               <p className="font-bold">Date: <span className="font-normal border-b border-dotted border-slate-400 px-2">{selectedVoucher.date}</span></p>
                           </div>
 
-                          {selectedVoucher.paymentMode === 'Journal' ? (
+                          {(selectedVoucher.paymentMode === 'Journal' || selectedVoucher.paymentMode === 'Debit Note' || selectedVoucher.paymentMode === 'Credit Note') ? (
                               <div className="mt-8 space-y-6 text-lg leading-loose">
                                   <div className="flex justify-between border-b border-dotted border-slate-400 pb-2">
-                                      <span><strong>Debit:</strong> {selectedVoucher.category}</span>
-                                      <span>₹ {selectedVoucher.amount.toLocaleString()}</span>
-                                  </div>
-                                  <div className="flex justify-between border-b border-dotted border-slate-400 pb-2">
-                                      <span><strong>Credit:</strong> {selectedVoucher.vendor}</span>
-                                      <span>₹ {selectedVoucher.amount.toLocaleString()}</span>
+                                      <span><strong>Amount:</strong> ₹ {selectedVoucher.amount.toLocaleString()}</span>
                                   </div>
                                   <div className="pt-4">
-                                      <p><strong>Narration:</strong> {selectedVoucher.description}</p>
+                                      <p><strong>Party Name:</strong> {selectedVoucher.vendor}</p>
+                                      <p className="mt-2"><strong>Category/Account:</strong> {selectedVoucher.category}</p>
+                                      <p className="mt-2"><strong>Narration:</strong> {selectedVoucher.description}</p>
                                   </div>
+                                   {selectedVoucher.paymentMode === 'Debit Note' && <p className="font-bold mt-4 text-center">WE HAVE DEBITED YOUR ACCOUNT</p>}
+                                   {selectedVoucher.paymentMode === 'Credit Note' && <p className="font-bold mt-4 text-center">WE HAVE CREDITED YOUR ACCOUNT</p>}
                               </div>
                           ) : (
                               <div className="mt-8 space-y-6 text-lg leading-loose">
@@ -380,12 +389,6 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
                                   <div className="border-t border-slate-400 w-32"></div>
                                   <p className="text-sm font-bold mt-1">Prepared By</p>
                               </div>
-                              {selectedVoucher.paymentMode !== 'Journal' && (
-                                  <div className="text-center">
-                                      <div className="border-t border-slate-400 w-32"></div>
-                                      <p className="text-sm font-bold mt-1">Receiver's Sign</p>
-                                  </div>
-                              )}
                               <div className="text-center">
                                   <div className="border-t border-slate-400 w-32"></div>
                                   <p className="text-sm font-bold mt-1">Authorised Signatory</p>

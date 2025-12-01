@@ -1,6 +1,8 @@
+
 import React, { useState, useRef } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
 import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 declare global {
   interface Window {
@@ -385,6 +387,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   return (
     <div className="space-y-6">
+      <StandardToolbar 
+        onSave={() => { setGenerationMode('SINGLE'); setIsModalOpen(true); }}
+        onModify={() => setIsSettingsOpen(true)}
+      />
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex gap-2">
           {['All', PaymentStatus.PAID, PaymentStatus.PENDING, PaymentStatus.OVERDUE].map(s => (
