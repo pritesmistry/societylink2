@@ -473,8 +473,16 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                       <div className="flex justify-end gap-1">
                           <button 
                             onClick={() => handlePreview(bill)}
+                            className="text-teal-600 hover:text-teal-800 hover:bg-teal-50 p-2 rounded-full transition-colors"
+                            title="Preview Bill"
+                          >
+                              <Eye size={20} />
+                          </button>
+
+                          <button 
+                            onClick={() => handlePreview(bill)}
                             className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-full transition-colors"
-                            title="Invoice Preview"
+                            title="Download Invoice"
                           >
                               <FileDown size={20} />
                           </button>
