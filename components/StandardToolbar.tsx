@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { 
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
-  Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange 
+  Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange,
+  Copy, Check
 } from 'lucide-react';
 
 interface StandardToolbarProps {
@@ -16,14 +17,55 @@ interface StandardToolbarProps {
   className?: string;
 }
 
+const STANDARD_DESCRIPTIONS = {
+    'Expenses': [
+        "Being amount paid towards electricity charges for the month of...",
+        "Being housekeeping charges paid to [Vendor] for the month of...",
+        "Being security services charges paid for the month of...",
+        "Being amount paid for water tanker charges vide Bill No...",
+        "Being amount paid for lift maintenance AMC charges...",
+        "Being reimbursement of petty cash expenses...",
+        "Being audit fees paid for the financial year...",
+        "Being amount paid for diesel purchase for DG set...",
+        "Being repairs and maintenance charges paid for..."
+    ],
+    'Receipts (Income)': [
+        "Being maintenance charges received for the period...",
+        "Being transfer fees received from member...",
+        "Being interest received on Fixed Deposit...",
+        "Being rent received for mobile tower / hoarding...",
+        "Being donation received for festival celebration...",
+        "Being penalty charges received for late payment...",
+        "Being hall booking charges received from..."
+    ],
+    'Billing & Journal': [
+        "Being monthly maintenance bill raised for the month of...",
+        "Being provision made for expenses payable...",
+        "Being interest charged on arrears...",
+        "Being sinking fund contribution charged...",
+        "Being rectification entry passed for...",
+        "Being depreciation charged on assets for the year..."
+    ],
+    'General': [
+        "Being cash deposited into bank...",
+        "Being cash withdrawn from bank for petty cash...",
+        "Being amount transferred to Fixed Deposit...",
+        "Being TDS deducted on payment to..."
+    ]
+};
+
 const StandardToolbar: React.FC<StandardToolbarProps> = ({ 
   onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className 
 }) => {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showPeriod, setShowPeriod] = useState(false);
+  const [showStdDesc, setShowStdDesc] = useState(false);
   const [calcInput, setCalcInput] = useState('');
   
+  // Standard Description Copy State
+  const [copiedDescIndex, setCopiedDescIndex] = useState<string | null>(null);
+
   // Period State
   const [period, setPeriod] = useState({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -54,6 +96,12 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       }
       setShowPeriod(false);
       alert(`Period Filter Applied: ${period.from} to ${period.to}`); // Visual confirmation for now
+  };
+
+  const handleCopyDesc = (text: string, id: string) => {
+      navigator.clipboard.writeText(text);
+      setCopiedDescIndex(id);
+      setTimeout(() => setCopiedDescIndex(null), 1500);
   };
 
   // Calendar Helpers
@@ -119,7 +167,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>Print</span>
       </button>
 
-      <button onClick={() => alert("Standard Description Helper")} className={btnClass} title="Standard Description">
+      <button onClick={() => setShowStdDesc(!showStdDesc)} className={btnClass} title="Standard Description">
         <FileText size={iconSize} className="text-teal-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Std Desc</span>
       </button>
@@ -176,6 +224,46 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                     Apply Filter
                 </button>
             </div>
+         </div>
+      )}
+
+      {/* Standard Descriptions Popup */}
+      {showStdDesc && (
+         <div className="absolute top-20 right-0 md:right-auto md:left-1/2 md:-translate-x-1/4 z-50 bg-white p-0 rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg text-left overflow-hidden">
+             <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+                 <h4 className="font-bold text-slate-700 flex items-center gap-2">
+                     <FileText size={18} className="text-teal-600"/> Standard Descriptions
+                 </h4>
+                 <button onClick={() => setShowStdDesc(false)} className="text-slate-400 hover:text-red-500"><X size={20}/></button>
+             </div>
+             <div className="max-h-[400px] overflow-y-auto p-4 space-y-6">
+                 {Object.entries(STANDARD_DESCRIPTIONS).map(([category, items]) => (
+                     <div key={category}>
+                         <h5 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{category}</h5>
+                         <div className="space-y-2">
+                             {items.map((desc, idx) => {
+                                 const uniqueId = `${category}-${idx}`;
+                                 const isCopied = copiedDescIndex === uniqueId;
+                                 return (
+                                     <div 
+                                        key={idx} 
+                                        onClick={() => handleCopyDesc(desc, uniqueId)}
+                                        className="group flex justify-between items-start gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer border border-transparent hover:border-slate-100 transition-all"
+                                     >
+                                         <p className="text-sm text-slate-700 leading-relaxed">{desc}</p>
+                                         <button className={`shrink-0 p-1 rounded-md transition-colors ${isCopied ? 'text-green-600 bg-green-50' : 'text-slate-300 group-hover:text-indigo-600'}`}>
+                                             {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                                         </button>
+                                     </div>
+                                 );
+                             })}
+                         </div>
+                     </div>
+                 ))}
+             </div>
+             <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500">
+                 Click on any description to copy to clipboard
+             </div>
          </div>
       )}
 
