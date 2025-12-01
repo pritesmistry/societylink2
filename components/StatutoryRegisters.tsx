@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Resident, Society, Bill, Expense, Income } from '../types';
-import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark } from 'lucide-react';
+import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark, CalendarClock } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface StatutoryRegistersProps {
@@ -12,7 +12,7 @@ interface StatutoryRegistersProps {
   incomes?: Income[];
 }
 
-type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX';
+type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX' | 'DUE_DATES';
 
 declare global {
   interface Window {
@@ -63,6 +63,51 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
           taxLiability
       };
   }, [bills, incomes]);
+
+  const STATUTORY_DEADLINES = [
+    {
+        title: "Finalization of Accounts",
+        date: "15th May",
+        description: "Books of accounts for the previous financial year (ending 31st March) must be finalized and handed over for audit.",
+        act: "MCS Act Rule 61"
+    },
+    {
+        title: "Statutory Audit Completion",
+        date: "31st July",
+        description: "The Statutory Audit must be completed and the report must be submitted by the Auditor.",
+        act: "Section 81"
+    },
+    {
+        title: "Income Tax Return (ITR)",
+        date: "31st July (Non-Audit) / 30th Sep (Audit)",
+        description: "Filing of Income Tax Return (ITR-5). If Tax Audit is applicable (Turnover > 1Cr), due date is Sep 30.",
+        act: "Income Tax Act 1961"
+    },
+    {
+        title: "Audit Report Submission",
+        date: "31st August",
+        description: "Submission of Audit Report to the Registrar (online uploading on portal).",
+        act: "MCS Act"
+    },
+    {
+        title: "Annual General Meeting (AGM)",
+        date: "30th September",
+        description: "Holding of Annual General Meeting is mandatory within 6 months of FY end.",
+        act: "Section 75(1)"
+    },
+    {
+        title: "Mandatory Annual Returns",
+        date: "30th September",
+        description: "Filing of Annual Returns (Form O) with the Registrar of Societies.",
+        act: "Section 79"
+    },
+    {
+        title: "TDS Returns (Quarterly)",
+        date: "Quarterly (31st Jul/Oct/Jan/May)",
+        description: "Filing of quarterly TDS returns (Form 24Q/26Q).",
+        act: "Income Tax Act"
+    }
+  ];
 
   const SOCIETY_RULES = [
     {
@@ -139,7 +184,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: activeTab === 'RULES_REGULATIONS' ? 'portrait' : 'landscape' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'RULES_REGULATIONS' || activeTab === 'DUE_DATES') ? 'portrait' : 'landscape' }
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
@@ -211,6 +256,12 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
           >
               <Landmark size={16} /> Income Tax
           </button>
+          <button 
+            onClick={() => setActiveTab('DUE_DATES')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'DUE_DATES' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <CalendarClock size={16} /> Due Dates
+          </button>
       </div>
 
        <div className="flex justify-end">
@@ -225,7 +276,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="register-container" 
-            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
+            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -240,6 +291,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                      activeTab === 'RULES_REGULATIONS' ? 'Society Rules & Regulations' :
                      activeTab === 'AUDIT_REPORT' ? 'Statutory Audit Report (Draft)' :
                      activeTab === 'INCOME_TAX' ? 'Income Tax Compliance Report' :
+                     activeTab === 'DUE_DATES' ? 'Statutory Compliance Calendar' :
                      'Form "O" - Rectification Report'}
                 </h2>
              </div>
@@ -395,6 +447,38 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                              <div className="h-10 border-b border-slate-400"></div>
                              <p className="font-bold mt-1">Chairman</p>
                          </div>
+                     </div>
+                 </div>
+             )}
+
+             {/* STATUTORY DUE DATES */}
+             {activeTab === 'DUE_DATES' && (
+                 <div className="space-y-6">
+                     <p className="text-sm text-center text-slate-600 mb-6">
+                         Mandatory compliance deadlines for Housing Societies under the MCS Act and Income Tax Act.
+                     </p>
+                     
+                     <div className="grid grid-cols-1 gap-4">
+                         {STATUTORY_DEADLINES.map((item, idx) => (
+                             <div key={idx} className="flex border border-slate-200 rounded-lg overflow-hidden break-inside-avoid">
+                                 <div className="w-32 bg-slate-100 flex flex-col items-center justify-center p-4 border-r border-slate-200">
+                                     <span className="text-indigo-600 font-bold text-center leading-tight">{item.date}</span>
+                                 </div>
+                                 <div className="flex-1 p-4">
+                                     <div className="flex justify-between items-start mb-1">
+                                         <h3 className="font-bold text-slate-800 text-lg">{item.title}</h3>
+                                         <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                             {item.act}
+                                         </span>
+                                     </div>
+                                     <p className="text-sm text-slate-600">{item.description}</p>
+                                 </div>
+                             </div>
+                         ))}
+                     </div>
+
+                     <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mt-8 text-sm text-indigo-800 break-inside-avoid">
+                         <strong>Important Note:</strong> The Managing Committee is responsible for adhering to these dates. Failure to comply may attract penalties from the Registrar or Income Tax Department.
                      </div>
                  </div>
              )}
