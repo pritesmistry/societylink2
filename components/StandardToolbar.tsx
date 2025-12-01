@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
@@ -19,7 +18,11 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   onSave, onModify, onSearch, onPrint, onPrev, onNext, className 
 }) => {
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [calcInput, setCalcInput] = useState('');
+  
+  // Calendar State
+  const [calDate, setCalDate] = useState(new Date());
 
   const handleCalc = (val: string) => {
       if (val === '=') {
@@ -36,12 +39,25 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       }
   };
 
+  // Calendar Helpers
+  const getDaysInMonth = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const days = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    return { days, firstDay, year, month };
+  };
+
+  const { days, firstDay, year, month } = getDaysInMonth(calDate);
+  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+
   const btnClass = "p-2 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px]";
   const iconSize = 20;
   const labelClass = "text-[10px] font-medium uppercase tracking-wide";
 
   return (
-    <div className={`bg-white border-b border-slate-200 p-2 mb-6 flex flex-wrap items-center gap-1 shadow-sm rounded-lg ${className}`}>
+    <div className={`bg-white border-b border-slate-200 p-2 mb-6 flex flex-wrap items-center gap-1 shadow-sm rounded-lg ${className} relative`}>
       <button onClick={onSave} className={btnClass} title="Save / Add New">
         <Save size={iconSize} />
         <span className={labelClass}>Save</span>
@@ -64,9 +80,9 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>Calc</span>
       </button>
       
-      <button onClick={() => alert("Calendar View coming soon")} className={btnClass} title="Calendar">
+      <button onClick={() => setShowCalendar(!showCalendar)} className={btnClass} title="Calendar">
         <Calendar size={iconSize} />
-        <span className={labelClass}>Calender</span>
+        <span className={labelClass}>Calendar</span>
       </button>
 
       <button onClick={() => alert("No reminders set")} className={btnClass} title="Reminders">
@@ -107,7 +123,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
 
       {/* Simple Calculator Popup */}
       {showCalculator && (
-        <div className="absolute top-36 left-1/2 -translate-x-1/2 z-50 bg-slate-800 p-4 rounded-xl shadow-2xl text-white w-64">
+        <div className="absolute top-20 left-1/3 z-50 bg-slate-800 p-4 rounded-xl shadow-2xl text-white w-64 border border-slate-700">
            <div className="flex justify-between mb-2">
                <span className="font-bold">Calculator</span>
                <button onClick={() => setShowCalculator(false)}><X size={16}/></button>
@@ -120,12 +136,46 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                    <button 
                     key={k} 
                     onClick={() => handleCalc(k)}
-                    className="bg-slate-600 hover:bg-slate-500 p-2 rounded text-lg font-bold"
+                    className="bg-slate-600 hover:bg-slate-500 p-2 rounded text-lg font-bold transition-colors"
                    >
                        {k}
                    </button>
                ))}
-               <button onClick={() => handleCalc('C')} className="col-span-4 bg-red-500 hover:bg-red-600 p-2 rounded font-bold mt-1">Clear</button>
+               <button onClick={() => handleCalc('C')} className="col-span-4 bg-red-500 hover:bg-red-600 p-2 rounded font-bold mt-1 transition-colors">Clear</button>
+           </div>
+        </div>
+      )}
+
+      {/* Calendar Popup */}
+      {showCalendar && (
+        <div className="absolute top-20 left-1/3 ml-16 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 w-80 text-slate-800">
+           <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+               <button onClick={() => setCalDate(new Date(year, month - 1, 1))} className="p-1 hover:bg-slate-100 rounded text-slate-600"><ChevronLeft size={20}/></button>
+               <span className="font-bold text-lg">{monthNames[month]} {year}</span>
+               <div className="flex gap-1 items-center">
+                   <button onClick={() => setCalDate(new Date(year, month + 1, 1))} className="p-1 hover:bg-slate-100 rounded text-slate-600"><ChevronRight size={20}/></button>
+                   <button onClick={() => setShowCalendar(false)} className="p-1 hover:bg-red-50 text-red-500 rounded ml-2"><X size={16}/></button>
+               </div>
+           </div>
+           <div className="grid grid-cols-7 gap-1 text-center mb-2">
+               {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+                   <div key={d} className="text-xs font-bold text-slate-400 uppercase">{d}</div>
+               ))}
+           </div>
+           <div className="grid grid-cols-7 gap-1 text-center">
+               {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
+               {Array.from({ length: days }).map((_, i) => {
+                   const day = i + 1;
+                   const isToday = new Date().getDate() === day && new Date().getMonth() === month && new Date().getFullYear() === year;
+                   return (
+                       <div key={day} className={`text-sm w-8 h-8 flex items-center justify-center rounded-full cursor-pointer hover:bg-indigo-50 transition-colors ${isToday ? 'bg-indigo-600 text-white font-bold shadow-md' : 'text-slate-700'}`}>
+                           {day}
+                       </div>
+                   )
+               })}
+           </div>
+           <div className="mt-4 text-center border-t border-slate-100 pt-3">
+               <button onClick={() => setCalDate(new Date())} className="text-xs text-indigo-600 font-bold hover:underline">Jump to Today</button>
            </div>
         </div>
       )}
