@@ -229,6 +229,7 @@ const App: React.FC = () => {
                 activeSociety={activeSociety}
                 bills={activeBills}
                 expenses={activeExpenses}
+                incomes={activeIncomes}
             />
         );
       case 'REPORTS':

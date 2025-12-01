@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Resident, Society, Bill, Expense } from '../types';
-import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText } from 'lucide-react';
+import { Resident, Society, Bill, Expense, Income } from '../types';
+import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface StatutoryRegistersProps {
@@ -9,9 +9,10 @@ interface StatutoryRegistersProps {
   activeSociety: Society;
   bills?: Bill[];
   expenses?: Expense[];
+  incomes?: Income[];
 }
 
-type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS';
+type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX';
 
 declare global {
   interface Window {
@@ -19,7 +20,7 @@ declare global {
   }
 }
 
-const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, activeSociety, bills = [], expenses = [] }) => {
+const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, activeSociety, bills = [], expenses = [], incomes = [] }) => {
   const [activeTab, setActiveTab] = useState<RegisterType>('I_REGISTER');
 
   // Filter only owners for registers usually
@@ -32,6 +33,36 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       const surplus = totalIncome - totalExpense;
       return { totalIncome, totalExpense, surplus };
   }, [bills, expenses]);
+
+  // Income Tax Computation Logic
+  const taxComputation = useMemo(() => {
+      // 1. Income from Members (Maintenance) -> Exempt under Principle of Mutuality
+      const incomeFromMembers = bills.reduce((sum, b) => sum + b.totalAmount, 0);
+
+      // 2. Income from Other Sources (Interest, Rent, Ads) -> Generally Taxable
+      // Note: Interest from Co-op banks is deductible u/s 80P(2)(d), but for simplicity we list it here.
+      const incomeFromOtherSources = incomes.reduce((sum, i) => sum + i.amount, 0);
+
+      const grossTotalIncome = incomeFromOtherSources; // Only non-member income is taxable base usually
+
+      // Standard Deduction (Section 80P - Flat deduction for general societies is 50,000 or specific 100% for co-op interest)
+      // We will assume a standard deduction placeholder
+      const deductions = 50000; 
+
+      const netTaxableIncome = Math.max(0, grossTotalIncome - deductions);
+      
+      // Tax Rate approx 30% for societies + Cess
+      const taxLiability = netTaxableIncome * 0.312; 
+
+      return {
+          incomeFromMembers,
+          incomeFromOtherSources,
+          grossTotalIncome,
+          deductions,
+          netTaxableIncome,
+          taxLiability
+      };
+  }, [bills, incomes]);
 
   const SOCIETY_RULES = [
     {
@@ -125,8 +156,8 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-           <h2 className="text-xl font-semibold text-slate-800">Statutory Registers & Audit</h2>
-           <p className="text-sm text-slate-500 mt-1">Official society records (I, J, Share, Nomination, Audit, Form O).</p>
+           <h2 className="text-xl font-semibold text-slate-800">Statutory Registers & Compliance</h2>
+           <p className="text-sm text-slate-500 mt-1">Official society records, Audit reports, and Tax filings.</p>
         </div>
       </div>
 
@@ -174,6 +205,12 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
           >
               <ClipboardCheck size={16} /> "O" Form
           </button>
+          <button 
+            onClick={() => setActiveTab('INCOME_TAX')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'INCOME_TAX' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <Landmark size={16} /> Income Tax
+          </button>
       </div>
 
        <div className="flex justify-end">
@@ -188,7 +225,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="register-container" 
-            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
+            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -202,6 +239,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                      activeTab === 'NOMINATION_REGISTER' ? 'Nomination Register' :
                      activeTab === 'RULES_REGULATIONS' ? 'Society Rules & Regulations' :
                      activeTab === 'AUDIT_REPORT' ? 'Statutory Audit Report (Draft)' :
+                     activeTab === 'INCOME_TAX' ? 'Income Tax Compliance Report' :
                      'Form "O" - Rectification Report'}
                 </h2>
              </div>
@@ -509,6 +547,128 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                              <div className="text-center w-40 border-t border-slate-300 pt-2">
                                  <p className="font-bold">Chairman</p>
                              </div>
+                         </div>
+                     </div>
+                 </div>
+             )}
+
+             {/* INCOME TAX */}
+             {activeTab === 'INCOME_TAX' && (
+                 <div className="space-y-6">
+                    <div className="border border-slate-200 rounded p-4 bg-slate-50 flex justify-between items-center">
+                        <div>
+                            <p className="text-sm font-bold text-slate-500 uppercase">Society PAN</p>
+                            <p className="text-xl font-bold font-mono text-slate-800">ABCDE1234F</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-500 uppercase">TAN</p>
+                            <p className="text-xl font-bold font-mono text-slate-800">MUM123456</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-500 uppercase">Status</p>
+                            <p className="text-lg font-bold text-slate-800">AOP (Co-operative Society)</p>
+                        </div>
+                        <div>
+                             <p className="text-sm font-bold text-slate-500 uppercase">FY / AY</p>
+                             <p className="text-lg font-bold text-slate-800">2023-24 / 2024-25</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8">
+                        <div>
+                            <h3 className="font-bold text-slate-800 mb-2 border-b-2 border-slate-800 pb-1">Provisional Computation of Income</h3>
+                            <table className="w-full text-sm border-collapse border border-slate-300">
+                                <tbody>
+                                    <tr>
+                                        <td className="p-2 border border-slate-300 bg-slate-50 font-bold" colSpan={2}>I. Income from Business/Profession</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-2 border border-slate-300 pl-4">Contribution from Members (Exempt - Mutuality)</td>
+                                        <td className="p-2 border border-slate-300 text-right text-slate-500">
+                                            ({taxComputation.incomeFromMembers.toLocaleString()})
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-2 border border-slate-300 pl-4 font-bold">Net Business Income</td>
+                                        <td className="p-2 border border-slate-300 text-right font-bold">NIL</td>
+                                    </tr>
+                                    
+                                    <tr>
+                                        <td className="p-2 border border-slate-300 bg-slate-50 font-bold" colSpan={2}>II. Income from Other Sources</td>
+                                    </tr>
+                                    <tr>
+                                        <td className="p-2 border border-slate-300 pl-4">Interest / Rent / Other Non-member receipts</td>
+                                        <td className="p-2 border border-slate-300 text-right">
+                                            {taxComputation.incomeFromOtherSources.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr className="bg-slate-100">
+                                        <td className="p-2 border border-slate-300 font-bold">Gross Total Income (I + II)</td>
+                                        <td className="p-2 border border-slate-300 text-right font-bold">
+                                            {taxComputation.grossTotalIncome.toLocaleString()}
+                                        </td>
+                                    </tr>
+
+                                    <tr>
+                                        <td className="p-2 border border-slate-300 pl-4">Less: Deduction u/s 80P (Standard/Specific)</td>
+                                        <td className="p-2 border border-slate-300 text-right text-red-600">
+                                            -{taxComputation.deductions.toLocaleString()}
+                                        </td>
+                                    </tr>
+
+                                    <tr className="bg-slate-200">
+                                        <td className="p-2 border border-slate-300 font-bold">NET TAXABLE INCOME</td>
+                                        <td className="p-2 border border-slate-300 text-right font-bold text-lg">
+                                            {taxComputation.netTaxableIncome.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                     
+                                     <tr>
+                                        <td className="p-2 border border-slate-300 font-bold">Tax Payable (Approx @ 30% + Cess)</td>
+                                        <td className="p-2 border border-slate-300 text-right font-bold text-lg text-red-700">
+                                            {taxComputation.taxLiability.toFixed(0)}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div>
+                             <h3 className="font-bold text-slate-800 mb-2 border-b-2 border-slate-800 pb-1">Compliance Checklist</h3>
+                             <div className="space-y-4">
+                                <div className="p-4 bg-white border border-slate-200 shadow-sm rounded">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="font-bold text-slate-700">TDS Return (Quarterly)</span>
+                                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Q2 Filed</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500">Due Date for Q3: 31st Jan 2024</p>
+                                    <div className="w-full bg-slate-200 h-2 rounded-full mt-2">
+                                        <div className="bg-green-500 h-2 rounded-full w-3/4"></div>
+                                    </div>
+                                </div>
+                                
+                                <div className="p-4 bg-white border border-slate-200 shadow-sm rounded">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="font-bold text-slate-700">Income Tax Return (ITR-5)</span>
+                                        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Due Sep 30</span>
+                                    </div>
+                                    <p className="text-xs text-slate-500">FY 2023-24 Return filing is pending.</p>
+                                </div>
+
+                                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded text-sm text-indigo-800">
+                                    <strong>Note on Mutuality:</strong> Contribution from members (Transfer fees, Maintenance) is exempt based on the "Concept of Mutuality". Income earned from third parties (Interest from Nationalized Banks, Rental from Mobile Towers) is fully taxable.
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+                    
+                    <div className="pt-8 flex justify-between">
+                         <div className="text-center w-40 border-t border-slate-300 pt-2">
+                             <p className="font-bold">Hon. Secretary</p>
+                         </div>
+                         <div className="text-center w-40 border-t border-slate-300 pt-2">
+                             <p className="font-bold">Hon. Treasurer</p>
                          </div>
                      </div>
                  </div>
