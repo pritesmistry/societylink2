@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Bill, Society, PaymentStatus, PaymentDetails } from '../types';
-import { Search, Download, Eye, Calendar, Upload, FileText, Plus, CreditCard } from 'lucide-react';
+import { Search, Download, Eye, Calendar, Upload, FileText, Plus, CreditCard, AlertCircle } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ReceiptsProps {
@@ -50,6 +50,20 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
   const pendingBills = bills.filter(b => b.status === PaymentStatus.PENDING || b.status === PaymentStatus.OVERDUE);
 
   const totalCollected = paidBills.reduce((sum, bill) => sum + bill.totalAmount, 0);
+
+  // Calculate Outstanding for selected member
+  const selectedBill = useMemo(() => bills.find(b => b.id === selectedBillId), [bills, selectedBillId]);
+
+  const memberTotalOutstanding = useMemo(() => {
+    if (!selectedBill) return 0;
+    return bills
+        .filter(b => 
+            b.residentId === selectedBill.residentId && 
+            (b.status === PaymentStatus.PENDING || b.status === PaymentStatus.OVERDUE)
+        )
+        .reduce((sum, b) => sum + b.totalAmount, 0);
+  }, [selectedBill, bills]);
+
 
   const handleViewReceipt = (bill: Bill) => {
     setSelectedReceipt(bill);
@@ -324,9 +338,27 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
                          </select>
                      </div>
 
-                     {selectedBillId && (
+                     {selectedBill && (
+                         <div className="bg-red-50 border border-red-200 rounded-lg p-4 animate-fade-in shadow-sm">
+                            <h3 className="text-red-800 font-bold text-xs uppercase mb-2 flex items-center gap-1">
+                                <AlertCircle size={14} /> Total Outstanding Summary
+                            </h3>
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <p className="text-sm text-red-700 font-bold">{selectedBill.residentName}</p>
+                                    <p className="text-xs text-red-600">{selectedBill.unitNumber}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-red-500 uppercase font-semibold">Total Pending</p>
+                                    <p className="text-2xl font-bold text-red-700">₹{memberTotalOutstanding.toLocaleString()}</p>
+                                </div>
+                            </div>
+                         </div>
+                     )}
+
+                     {selectedBillId && !selectedBill && (
                          <div className="bg-slate-50 p-3 rounded text-sm text-slate-700 border border-slate-200">
-                             <strong>Amount to Collect: </strong>
+                             <strong>Bill Amount: </strong>
                              ₹{bills.find(b => b.id === selectedBillId)?.totalAmount}
                          </div>
                      )}
