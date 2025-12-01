@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Bill, Expense, Resident, Society, PaymentStatus, Income } from '../types';
 import { Download, TrendingUp, Scale, AlertCircle, FileBarChart, Coins, ArrowRightLeft, Calendar } from 'lucide-react';
@@ -263,8 +264,8 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-              <p className="text-xs text-slate-500 uppercase font-bold">Total Income ({selectedFYEnd-1}-{selectedFYEnd.toString().slice(-2)})</p>
-              <p className="text-xl font-bold text-slate-800">₹{formatMoney(financials.current.totalIncome)}</p>
+              <p className="text-xs text-slate-500 uppercase font-bold">Total Receipt Vouchers ({selectedFYEnd-1}-{selectedFYEnd.toString().slice(-2)})</p>
+              <p className="text-xl font-bold text-slate-800">₹{formatMoney(financials.current.totalOtherIncome)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
               <p className="text-xs text-slate-500 uppercase font-bold">Total Expense</p>
@@ -582,7 +583,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                         </tr>
 
                         <tr>
-                           <td className="py-2 text-slate-700 font-semibold mt-2">To Other Income</td>
+                           <td className="py-2 text-slate-700 font-semibold mt-2">To Receipt Vouchers</td>
                            <td className="py-2 text-right"></td>
                         </tr>
                         {Object.entries(receiptsAndPaymentsData.otherIncomesByCategory).map(([cat, amt], idx) => (

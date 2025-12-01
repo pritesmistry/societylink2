@@ -268,7 +268,7 @@ const App: React.FC = () => {
                currentView === 'MINUTES' ? 'Meeting Minutes' :
                currentView === 'RESIDENTS' ? 'Members' :
                currentView === 'RECEIPTS' ? 'Members Receipts' :
-               currentView === 'INCOME' ? 'Other Income' :
+               currentView === 'INCOME' ? 'Receipt Voucher' :
                currentView === 'VOUCHERS' ? 'Payment Vouchers' :
                currentView === 'TEMPLATES' ? 'Templates' :
                currentView === 'STATUTORY_REGISTERS' ? 'Statutory Registers & Audit' :

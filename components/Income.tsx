@@ -46,13 +46,13 @@ const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome 
 
       <div className="flex justify-between items-center">
         <div>
-            <h2 className="text-xl font-semibold text-slate-800">Other Income Register</h2>
+            <h2 className="text-xl font-semibold text-slate-800">Receipt Voucher Register</h2>
             <p className="text-sm text-slate-500 mt-1">Record non-maintenance revenue (Interest, Rent, etc.)</p>
         </div>
         
         <div className="flex items-center gap-4">
              <div className="bg-green-50 px-4 py-2 rounded-lg border border-green-200 flex flex-col items-end">
-                <span className="text-xs font-bold text-green-700 uppercase">Total Other Income</span>
+                <span className="text-xs font-bold text-green-700 uppercase">Total Receipt Vouchers</span>
                 <span className="text-lg font-bold text-green-800">₹{totalIncome.toLocaleString()}</span>
             </div>
             <button 
@@ -60,7 +60,7 @@ const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome 
             className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 shadow-md"
             >
             <Plus size={18} />
-            Record Income
+            Create Receipt Voucher
             </button>
         </div>
       </div>
@@ -96,7 +96,7 @@ const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome 
         {incomes.length === 0 && (
             <div className="col-span-full text-center py-16 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                 <TrendingUp size={48} className="mx-auto mb-3 text-slate-300" />
-                <p className="font-medium">No miscellaneous income recorded.</p>
+                <p className="font-medium">No receipt vouchers recorded.</p>
                 <p className="text-sm">Use this to track Bank Interest, Rent, or other society revenue.</p>
             </div>
         )}
@@ -107,7 +107,7 @@ const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome 
           <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                 <TrendingUp className="text-green-600" />
-                Record Income
+                Create Receipt Voucher
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -190,7 +190,7 @@ const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome 
                   type="submit"
                   className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 shadow-lg"
                 >
-                  Save Income
+                  Save Receipt Voucher
                 </button>
               </div>
             </form>
