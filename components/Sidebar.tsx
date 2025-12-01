@@ -15,7 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { view: 'SOCIETIES', label: 'My Societies', icon: Building2 },
     { view: 'RESIDENTS', label: 'Members', icon: Users },
     { view: 'BILLING', label: 'Billing', icon: Receipt },
-    { view: 'RECEIPTS', label: 'Receipts', icon: ScrollText },
+    { view: 'RECEIPTS', label: 'Members Receipts', icon: ScrollText },
     { view: 'INCOME', label: 'Other Income', icon: TrendingUp },
     { view: 'EXPENSES', label: 'Expenses', icon: CreditCard },
     { view: 'VOUCHERS', label: 'Payment Vouchers', icon: Ticket },

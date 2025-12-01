@@ -259,7 +259,7 @@ const App: React.FC = () => {
       <Sidebar currentView={currentView} onChangeView={setCurrentView} />
       
       <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen relative">
-        <header className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-center mb-6 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-100 transition-all">
+        <header className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-100 transition-all">
           <div className="mb-4 md:mb-0">
             <h2 className="text-2xl font-bold text-slate-800">
               {currentView === 'AI_INSIGHTS' ? 'AI Analysis & Insights' : 
@@ -267,6 +267,7 @@ const App: React.FC = () => {
                currentView === 'REPORTS' ? 'Reports & Balance Sheet' :
                currentView === 'MINUTES' ? 'Meeting Minutes' :
                currentView === 'RESIDENTS' ? 'Members' :
+               currentView === 'RECEIPTS' ? 'Members Receipts' :
                currentView === 'INCOME' ? 'Other Income' :
                currentView === 'VOUCHERS' ? 'Payment Vouchers' :
                currentView === 'TEMPLATES' ? 'Templates' :

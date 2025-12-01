@@ -193,7 +193,7 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-           <h2 className="text-xl font-semibold text-slate-800">Payment Receipts</h2>
+           <h2 className="text-xl font-semibold text-slate-800">Members Receipts</h2>
            <p className="text-sm text-slate-500 mt-1">Transaction history and downloadable receipts.</p>
         </div>
         <div className="flex gap-4">
