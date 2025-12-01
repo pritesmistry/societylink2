@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Bill, Expense, Resident, Society, PaymentStatus, Income } from '../types';
-import { Download, TrendingUp, Scale, AlertCircle, FileBarChart, Coins } from 'lucide-react';
+import { Download, TrendingUp, Scale, AlertCircle, FileBarChart, Coins, ArrowRightLeft } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ReportsProps {
@@ -12,6 +12,8 @@ interface ReportsProps {
   incomes: Income[];
 }
 
+type ReportType = 'BALANCE_SHEET' | 'TRIAL_BALANCE' | 'RECEIPTS_AND_PAYMENTS';
+
 declare global {
   interface Window {
     html2pdf: any;
@@ -19,7 +21,7 @@ declare global {
 }
 
 const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSociety, incomes }) => {
-  const [activeTab, setActiveTab] = useState<'BALANCE_SHEET' | 'TRIAL_BALANCE'>('BALANCE_SHEET');
+  const [activeTab, setActiveTab] = useState<ReportType>('BALANCE_SHEET');
 
   const financials = useMemo(() => {
     // 1. Income (Billed)
@@ -115,6 +117,47 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       return { ledgers, totalDebit, totalCredit };
   }, [expenses, incomes, financials]);
 
+  // Receipts and Payments Logic
+  const receiptsAndPaymentsData = useMemo(() => {
+    // 1. Receipts
+    // Maintenance Collections
+    const maintenanceCollections = bills
+      .filter(b => b.status === PaymentStatus.PAID)
+      .reduce((sum, b) => sum + b.totalAmount, 0);
+
+    // Other Income Collections
+    const otherIncomesByCategory: Record<string, number> = {};
+    incomes.forEach(i => {
+      otherIncomesByCategory[i.category] = (otherIncomesByCategory[i.category] || 0) + i.amount;
+    });
+
+    // 2. Payments
+    const expensesByCategory: Record<string, number> = {};
+    expenses.forEach(e => {
+      expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount;
+    });
+
+    // Opening Balance (Assuming 0 for start of period in this simplified view, or derived)
+    const openingBalance = 0; 
+
+    // Totals
+    const totalReceipts = openingBalance + maintenanceCollections + Object.values(otherIncomesByCategory).reduce((a, b) => a + b, 0);
+    const totalPayments = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
+    
+    // Closing Balance
+    const closingBalance = totalReceipts - totalPayments;
+
+    return {
+      openingBalance,
+      maintenanceCollections,
+      otherIncomesByCategory,
+      expensesByCategory,
+      totalReceipts,
+      totalPayments,
+      closingBalance
+    };
+  }, [bills, incomes, expenses]);
+
   const downloadReport = () => {
     const element = document.getElementById('report-content');
     if (!element) return;
@@ -122,7 +165,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
     // element.classList.remove('shadow-xl'); // Remove shadow for print
     const opt = {
       margin:       0.5,
-      filename:     `${activeTab === 'BALANCE_SHEET' ? 'Balance_Sheet' : 'Trial_Balance'}_${activeSociety.name}.pdf`,
+      filename:     `${activeTab}_${activeSociety.name}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
       jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -147,18 +190,24 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       />
       
       {/* Tab Switcher */}
-      <div className="flex gap-2 border-b border-slate-200 pb-1">
+      <div className="flex gap-2 border-b border-slate-200 pb-1 flex-wrap">
           <button 
             onClick={() => setActiveTab('BALANCE_SHEET')}
-            className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'BALANCE_SHEET' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-4 md:px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'BALANCE_SHEET' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
               <FileBarChart size={18} /> Balance Sheet
           </button>
           <button 
             onClick={() => setActiveTab('TRIAL_BALANCE')}
-            className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'TRIAL_BALANCE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-4 md:px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'TRIAL_BALANCE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
               <Scale size={18} /> Trial Balance
+          </button>
+          <button 
+            onClick={() => setActiveTab('RECEIPTS_AND_PAYMENTS')}
+            className={`px-4 md:px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'RECEIPTS_AND_PAYMENTS' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <ArrowRightLeft size={18} /> Receipts & Payments
           </button>
       </div>
 
@@ -196,12 +245,14 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
             <p className="text-slate-600 mt-2 whitespace-pre-wrap">{activeSociety.address}</p>
             {activeSociety.registrationNumber && <p className="text-sm text-slate-500 mt-1">Reg No: {activeSociety.registrationNumber}</p>}
             <h2 className="text-xl font-semibold mt-6 underline decoration-indigo-500 underline-offset-4 uppercase">
-                {activeTab === 'BALANCE_SHEET' ? 'Statement of Accounts & Balance Sheet' : 'Trial Balance Report'}
+                {activeTab === 'BALANCE_SHEET' ? 'Statement of Accounts & Balance Sheet' : 
+                 activeTab === 'TRIAL_BALANCE' ? 'Trial Balance Report' : 
+                 'Receipts & Payments Account'}
             </h2>
             <p className="text-sm text-slate-400 mt-2">Generated on: {new Date().toLocaleDateString()}</p>
           </div>
 
-          {activeTab === 'BALANCE_SHEET' ? (
+          {activeTab === 'BALANCE_SHEET' && (
               <>
                 {/* Income & Expenditure Statement */}
                 <div className="mb-10 break-inside-avoid">
@@ -374,7 +425,9 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                     </div>
                 </div>
               </>
-          ) : (
+          )}
+
+          {activeTab === 'TRIAL_BALANCE' && (
              /* TRIAL BALANCE VIEW */
              <div className="break-inside-avoid">
                  <h3 className="text-lg font-bold bg-slate-100 p-2 border-l-4 border-indigo-600 mb-4 flex items-center gap-2">
@@ -408,6 +461,103 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                      </tfoot>
                  </table>
              </div>
+          )}
+
+          {activeTab === 'RECEIPTS_AND_PAYMENTS' && (
+            /* RECEIPTS AND PAYMENTS VIEW */
+            <div className="break-inside-avoid">
+               <h3 className="text-lg font-bold bg-slate-100 p-2 border-l-4 border-indigo-600 mb-4 flex items-center gap-2">
+                 <ArrowRightLeft size={18} /> Receipts & Payments Account
+               </h3>
+               <div className="grid grid-cols-2 gap-8">
+                 {/* Receipts Side */}
+                 <div>
+                   <table className="w-full text-sm">
+                     <thead>
+                       <tr className="border-b border-slate-300">
+                         <th className="text-left py-2 font-semibold">Receipts</th>
+                         <th className="text-right py-2 font-semibold">Amount (₹)</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                        <tr>
+                           <td className="py-2 text-slate-700 font-semibold">To Opening Balance</td>
+                           <td className="py-2 text-right"></td>
+                        </tr>
+                        <tr>
+                           <td className="py-1 pl-4 text-slate-600">Cash & Bank</td>
+                           <td className="py-1 text-right">₹{receiptsAndPaymentsData.openingBalance.toFixed(2)}</td>
+                        </tr>
+                        
+                        <tr>
+                           <td className="py-2 text-slate-700 font-semibold mt-2">To Maintenance Collections</td>
+                           <td className="py-2 text-right">₹{receiptsAndPaymentsData.maintenanceCollections.toFixed(2)}</td>
+                        </tr>
+
+                        <tr>
+                           <td className="py-2 text-slate-700 font-semibold mt-2">To Other Income</td>
+                           <td className="py-2 text-right"></td>
+                        </tr>
+                        {Object.entries(receiptsAndPaymentsData.otherIncomesByCategory).map(([cat, amt], idx) => (
+                           <tr key={idx}>
+                             <td className="py-1 pl-4 text-slate-600">{cat}</td>
+                             <td className="py-1 text-right">₹{Number(amt).toFixed(2)}</td>
+                           </tr>
+                        ))}
+                     </tbody>
+                     <tfoot className="border-t-2 border-slate-800">
+                        <tr>
+                          <td className="py-2 font-bold">Total</td>
+                          <td className="py-2 text-right font-bold">₹{receiptsAndPaymentsData.totalReceipts.toFixed(2)}</td>
+                        </tr>
+                     </tfoot>
+                   </table>
+                 </div>
+
+                 {/* Payments Side */}
+                 <div>
+                    <table className="w-full text-sm">
+                     <thead>
+                       <tr className="border-b border-slate-300">
+                         <th className="text-left py-2 font-semibold">Payments</th>
+                         <th className="text-right py-2 font-semibold">Amount (₹)</th>
+                       </tr>
+                     </thead>
+                     <tbody className="divide-y divide-slate-100">
+                        <tr>
+                           <td className="py-2 text-slate-700 font-semibold">By Expenses</td>
+                           <td className="py-2 text-right"></td>
+                        </tr>
+                        {Object.entries(receiptsAndPaymentsData.expensesByCategory).map(([cat, amt], idx) => (
+                           <tr key={idx}>
+                             <td className="py-1 pl-4 text-slate-600">{cat}</td>
+                             <td className="py-1 text-right">₹{Number(amt).toFixed(2)}</td>
+                           </tr>
+                        ))}
+                        {Object.keys(receiptsAndPaymentsData.expensesByCategory).length === 0 && (
+                            <tr><td className="py-1 pl-4 text-slate-400 italic">No payments recorded</td><td className="text-right">-</td></tr>
+                        )}
+
+                        <tr>
+                           <td className="py-2 text-slate-700 font-semibold mt-2">By Closing Balance</td>
+                           <td className="py-2 text-right"></td>
+                        </tr>
+                        <tr>
+                           <td className="py-1 pl-4 text-slate-600">Cash & Bank</td>
+                           <td className="py-1 text-right">₹{receiptsAndPaymentsData.closingBalance.toFixed(2)}</td>
+                        </tr>
+                     </tbody>
+                     <tfoot className="border-t-2 border-slate-800">
+                        <tr>
+                          <td className="py-2 font-bold">Total</td>
+                          <td className="py-2 text-right font-bold">₹{receiptsAndPaymentsData.totalReceipts.toFixed(2)}</td> 
+                          {/* Note: In R&P, Total Receipts matches Total Payments side (Payments + Closing Bal) */}
+                        </tr>
+                     </tfoot>
+                   </table>
+                 </div>
+               </div>
+            </div>
           )}
 
           {/* Footer Signature */}
