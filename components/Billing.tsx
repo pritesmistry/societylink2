@@ -36,6 +36,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   // Form State
   const [selectedResidentId, setSelectedResidentId] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
   const [items, setItems] = useState<BillItem[]>([
     { id: '1', description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }
   ]);
@@ -158,7 +159,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const handleSingleGenerate = () => {
     const resident = residents.find(r => r.id === selectedResidentId);
     
-    if (resident && dueDate && totalAmount > 0) {
+    if (resident && dueDate && billDate && totalAmount > 0) {
       onGenerateBill({
         id: `B${Date.now()}`,
         societyId,
@@ -170,15 +171,15 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         totalAmount: totalAmount,
         dueDate: dueDate,
         status: PaymentStatus.PENDING,
-        generatedDate: new Date().toISOString().split('T')[0]
+        generatedDate: billDate
       });
       closeModal();
     }
   };
 
   const handleBulkRulesGenerate = () => {
-    if (!dueDate) {
-        alert("Please select a due date");
+    if (!dueDate || !billDate) {
+        alert("Please select bill date and due date");
         return;
     }
 
@@ -207,7 +208,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             totalAmount: residentTotal,
             dueDate: dueDate,
             status: PaymentStatus.PENDING,
-            generatedDate: new Date().toISOString().split('T')[0]
+            generatedDate: billDate
         };
     });
 
@@ -280,7 +281,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         totalAmount: total,
                         dueDate: dueDate || new Date().toISOString().split('T')[0],
                         status: PaymentStatus.PENDING,
-                        generatedDate: new Date().toISOString().split('T')[0]
+                        generatedDate: billDate || new Date().toISOString().split('T')[0]
                     });
                 }
             } else {
@@ -319,6 +320,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setSelectedResidentId('');
       setInterest(0);
       setDueDate('');
+      setBillDate(new Date().toISOString().split('T')[0]);
       setBillingFrequency('MONTHLY');
   };
 
@@ -432,6 +434,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 <th className="p-4 font-semibold text-slate-600 text-sm">Bill ID</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Unit / Member</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Amount</th>
+                <th className="p-4 font-semibold text-slate-600 text-sm">Bill Date</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Due Date</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
@@ -446,6 +449,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     <div className="text-xs text-slate-500">{bill.residentName}</div>
                   </td>
                   <td className="p-4 font-bold text-slate-800 text-lg">₹{bill.totalAmount.toFixed(2)}</td>
+                  <td className="p-4 text-sm text-slate-600">{bill.generatedDate}</td>
                   <td className="p-4 text-sm text-slate-600">{bill.dueDate}</td>
                   <td className="p-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bill.status)}`}>
@@ -485,7 +489,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
               ))}
               {filteredBills.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">No bills found matching current filter.</td>
+                  <td colSpan={7} className="p-8 text-center text-slate-400">No bills found matching current filter.</td>
                 </tr>
               )}
             </tbody>
@@ -944,7 +948,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
               {/* Single Mode: Resident Selection */}
               {generationMode === 'SINGLE' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                    <div className="md:col-span-2">
                       <label className="block text-sm font-bold text-slate-900 mb-2">Select Member</label>
                       <select 
                         className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
@@ -957,6 +961,16 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                           <option key={r.id} value={r.id}>{r.unitNumber} - {r.name} ({r.sqFt} Sq. Ft.)</option>
                         ))}
                       </select>
+                    </div>
+                    <div>
+                       <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date</label>
+                       <input 
+                        type="date" 
+                        required
+                        className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                        value={billDate}
+                        onChange={e => setBillDate(e.target.value)}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-bold text-slate-900 mb-2">Due Date</label>
@@ -981,7 +995,18 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                               <p className="text-sm text-indigo-700">This will generate {residents.length} bills. Amounts set to "Per Sq. Ft." will be calculated automatically. All Monthly rates below will be multiplied by <strong>{getMultiplier()}</strong> for {billingFrequency.toLowerCase()} billing.</p>
                           </div>
                       </div>
-                      <div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date</label>
+                          <input 
+                            type="date" 
+                            required
+                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                            value={billDate}
+                            onChange={e => setBillDate(e.target.value)}
+                          />
+                        </div>
+                        <div>
                           <label className="block text-sm font-bold text-slate-900 mb-2">Due Date for All Bills</label>
                           <input 
                             type="date" 
@@ -991,6 +1016,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             onChange={e => setDueDate(e.target.value)}
                           />
                         </div>
+                      </div>
                   </div>
               )}
 
@@ -1005,15 +1031,27 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                           </div>
                       </div>
                       
-                       <div>
-                          <label className="block text-sm font-bold text-slate-900 mb-2">Due Date (Default)</label>
-                          <input 
-                            type="date" 
-                            required
-                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                            value={dueDate}
-                            onChange={e => setDueDate(e.target.value)}
-                          />
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div>
+                              <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date (Default)</label>
+                              <input 
+                                type="date" 
+                                required
+                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                                value={billDate}
+                                onChange={e => setBillDate(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold text-slate-900 mb-2">Due Date (Default)</label>
+                              <input 
+                                type="date" 
+                                required
+                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                                value={dueDate}
+                                onChange={e => setDueDate(e.target.value)}
+                              />
+                            </div>
                         </div>
 
                       <div className="flex gap-4">
