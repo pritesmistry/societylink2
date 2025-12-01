@@ -1,13 +1,14 @@
 
 import React, { useState, useRef } from 'react';
-import { Bill, Society, PaymentStatus } from '../types';
-import { Search, Download, Eye, Calendar, Upload, FileText } from 'lucide-react';
+import { Bill, Society, PaymentStatus, PaymentDetails } from '../types';
+import { Search, Download, Eye, Calendar, Upload, FileText, Plus, CreditCard } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ReceiptsProps {
   bills: Bill[];
   activeSociety: Society;
   onBulkUpdateBills: (bills: Bill[]) => void;
+  onUpdateBill: (bill: Bill) => void;
 }
 
 declare global {
@@ -16,10 +17,21 @@ declare global {
   }
 }
 
-const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateBills }) => {
+const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateBills, onUpdateBill }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Bill | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isAddReceiptOpen, setIsAddReceiptOpen] = useState(false);
+  
+  // New Receipt Form State
+  const [selectedBillId, setSelectedBillId] = useState('');
+  const [paymentForm, setPaymentForm] = useState<PaymentDetails>({
+      date: new Date().toISOString().split('T')[0],
+      mode: 'UPI',
+      reference: '',
+      remarks: ''
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter only PAID bills
@@ -35,11 +47,33 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
      return new Date(dateB).getTime() - new Date(dateA).getTime();
   });
 
+  const pendingBills = bills.filter(b => b.status === PaymentStatus.PENDING || b.status === PaymentStatus.OVERDUE);
+
   const totalCollected = paidBills.reduce((sum, bill) => sum + bill.totalAmount, 0);
 
   const handleViewReceipt = (bill: Bill) => {
     setSelectedReceipt(bill);
-    setIsModalOpen(true);
+    setIsViewModalOpen(true);
+  };
+
+  const handleSaveReceipt = (e: React.FormEvent) => {
+      e.preventDefault();
+      const billToUpdate = bills.find(b => b.id === selectedBillId);
+      if (billToUpdate) {
+          onUpdateBill({
+              ...billToUpdate,
+              status: PaymentStatus.PAID,
+              paymentDetails: paymentForm
+          });
+          setIsAddReceiptOpen(false);
+          setPaymentForm({
+              date: new Date().toISOString().split('T')[0],
+              mode: 'UPI',
+              reference: '',
+              remarks: ''
+          });
+          setSelectedBillId('');
+      }
   };
 
   const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,6 +174,7 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
         onSearch={() => alert("Use the search bar below")}
+        onSave={() => setIsAddReceiptOpen(true)}
       />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -168,7 +203,13 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
                     onClick={() => fileInputRef.current?.click()}
                     className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-sm"
                 >
-                    <Upload size={18} /> Bulk Record Payments
+                    <Upload size={18} /> Bulk Upload
+                </button>
+                 <button 
+                    onClick={() => setIsAddReceiptOpen(true)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 shadow-sm"
+                >
+                    <Plus size={18} /> New Receipt
                 </button>
             </div>
 
@@ -252,8 +293,112 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
         </div>
       </div>
 
+      {/* --- ADD NEW RECEIPT MODAL --- */}
+      {isAddReceiptOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] backdrop-blur-sm">
+             <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+                 <h2 className="text-xl font-bold mb-4 text-slate-800 flex items-center gap-2">
+                     <Plus className="text-green-600" />
+                     New Receipt
+                 </h2>
+                 <p className="text-sm text-slate-600 mb-6">
+                     Record payment for a pending bill to generate a receipt.
+                 </p>
+                 
+                 <form onSubmit={handleSaveReceipt} className="space-y-4">
+                     <div>
+                         <label className="block text-sm font-semibold text-slate-700 mb-1">Select Pending Bill *</label>
+                         <select 
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                            required
+                            value={selectedBillId}
+                            onChange={(e) => setSelectedBillId(e.target.value)}
+                         >
+                             <option value="">-- Choose Bill --</option>
+                             {pendingBills.map(b => (
+                                 <option key={b.id} value={b.id}>
+                                     {b.unitNumber} - {b.residentName} (₹{b.totalAmount}) - {b.dueDate}
+                                 </option>
+                             ))}
+                             {pendingBills.length === 0 && <option disabled>No pending bills found</option>}
+                         </select>
+                     </div>
+
+                     {selectedBillId && (
+                         <div className="bg-slate-50 p-3 rounded text-sm text-slate-700 border border-slate-200">
+                             <strong>Amount to Collect: </strong>
+                             ₹{bills.find(b => b.id === selectedBillId)?.totalAmount}
+                         </div>
+                     )}
+
+                     <div>
+                         <label className="block text-sm font-semibold text-slate-700 mb-1">Payment Date</label>
+                         <input 
+                            type="date" 
+                            required 
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                            value={paymentForm.date}
+                            onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
+                         />
+                     </div>
+                     <div>
+                         <label className="block text-sm font-semibold text-slate-700 mb-1">Payment Mode</label>
+                         <select 
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                            value={paymentForm.mode}
+                            onChange={(e) => setPaymentForm({...paymentForm, mode: e.target.value as any})}
+                         >
+                             <option value="UPI">UPI / GPay / PhonePe</option>
+                             <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
+                             <option value="Cheque">Cheque</option>
+                             <option value="Cash">Cash</option>
+                         </select>
+                     </div>
+                     <div>
+                         <label className="block text-sm font-semibold text-slate-700 mb-1">Reference / Cheque No.</label>
+                         <input 
+                            type="text" 
+                            required 
+                            placeholder="e.g. UPI-12345678"
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                            value={paymentForm.reference}
+                            onChange={(e) => setPaymentForm({...paymentForm, reference: e.target.value})}
+                         />
+                     </div>
+                     <div>
+                         <label className="block text-sm font-semibold text-slate-700 mb-1">Remarks</label>
+                         <input 
+                            type="text" 
+                            placeholder="Optional notes"
+                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                            value={paymentForm.remarks}
+                            onChange={(e) => setPaymentForm({...paymentForm, remarks: e.target.value})}
+                         />
+                     </div>
+
+                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
+                         <button 
+                            type="button" 
+                            onClick={() => setIsAddReceiptOpen(false)}
+                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                         >
+                             Cancel
+                         </button>
+                         <button 
+                            type="submit" 
+                            disabled={!selectedBillId}
+                            className="px-6 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                             Save Receipt
+                         </button>
+                     </div>
+                 </form>
+             </div>
+          </div>
+      )}
+
       {/* --- RECEIPT PREVIEW MODAL --- */}
-      {isModalOpen && selectedReceipt && selectedReceipt.paymentDetails && (
+      {isViewModalOpen && selectedReceipt && selectedReceipt.paymentDetails && (
           <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70] backdrop-blur-sm p-4 overflow-y-auto">
               <div className="relative w-full max-w-2xl flex flex-col items-center">
                   <div className="flex gap-4 mb-4">
@@ -264,7 +409,7 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
                           <Download size={20} /> Download PDF
                       </button>
                       <button 
-                        onClick={() => setIsModalOpen(false)}
+                        onClick={() => setIsViewModalOpen(false)}
                         className="bg-slate-800 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-slate-900"
                       >
                           Close

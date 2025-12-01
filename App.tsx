@@ -177,6 +177,7 @@ const App: React.FC = () => {
                 bills={activeBills} 
                 activeSociety={activeSociety} 
                 onBulkUpdateBills={handleBulkUpdateBills}
+                onUpdateBill={handleUpdateBill}
             />
         );
       case 'INCOME':
