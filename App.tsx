@@ -226,7 +226,9 @@ const App: React.FC = () => {
         return (
             <StatutoryRegisters 
                 residents={activeResidents} 
-                activeSociety={activeSociety} 
+                activeSociety={activeSociety}
+                bills={activeBills}
+                expenses={activeExpenses}
             />
         );
       case 'REPORTS':
@@ -267,6 +269,7 @@ const App: React.FC = () => {
                currentView === 'INCOME' ? 'Other Income' :
                currentView === 'VOUCHERS' ? 'Payment Vouchers' :
                currentView === 'TEMPLATES' ? 'Templates' :
+               currentView === 'STATUTORY_REGISTERS' ? 'Statutory Registers & Audit' :
                currentView.charAt(0) + currentView.slice(1).toLowerCase().replace('_', ' ')}
             </h2>
             <p className="text-slate-500 text-sm">Welcome back, Admin</p>
