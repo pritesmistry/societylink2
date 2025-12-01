@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
   Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange,
-  Copy, Check
+  Copy, Check, MessageCircle, FileSpreadsheet, File, FileEdit
 } from 'lucide-react';
 
 interface StandardToolbarProps {
@@ -170,6 +170,29 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       <button onClick={() => setShowStdDesc(!showStdDesc)} className={btnClass} title="Standard Description">
         <FileText size={iconSize} className="text-teal-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Std Desc</span>
+      </button>
+
+      <div className="w-px h-10 bg-slate-200 mx-1"></div>
+
+      {/* NEW EXPORT BUTTONS */}
+      <button onClick={() => alert("WhatsApp Share feature coming soon")} className={btnClass} title="WhatsApp">
+        <MessageCircle size={iconSize} className="text-green-500 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>WhatsApp</span>
+      </button>
+
+      <button onClick={() => alert("Export to Excel feature coming soon")} className={btnClass} title="Excel">
+        <FileSpreadsheet size={iconSize} className="text-emerald-600 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>Excel</span>
+      </button>
+
+      <button onClick={() => alert("Export to PDF feature coming soon")} className={btnClass} title="PDF">
+        <File size={iconSize} className="text-red-500 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>PDF</span>
+      </button>
+
+      <button onClick={() => alert("Export to Word feature coming soon")} className={btnClass} title="Word">
+        <FileEdit size={iconSize} className="text-blue-600 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>Word</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
