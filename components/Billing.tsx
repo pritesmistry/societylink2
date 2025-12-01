@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -37,6 +37,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [selectedResidentId, setSelectedResidentId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
+  const [billingMonth, setBillingMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [items, setItems] = useState<BillItem[]>([
     { id: '1', description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }
   ]);
@@ -171,7 +172,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         totalAmount: totalAmount,
         dueDate: dueDate,
         status: PaymentStatus.PENDING,
-        generatedDate: billDate
+        generatedDate: billDate,
+        billMonth: billingMonth
       });
       closeModal();
     }
@@ -208,7 +210,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             totalAmount: residentTotal,
             dueDate: dueDate,
             status: PaymentStatus.PENDING,
-            generatedDate: billDate
+            generatedDate: billDate,
+            billMonth: billingMonth
         };
     });
 
@@ -281,7 +284,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         totalAmount: total,
                         dueDate: dueDate || new Date().toISOString().split('T')[0],
                         status: PaymentStatus.PENDING,
-                        generatedDate: billDate || new Date().toISOString().split('T')[0]
+                        generatedDate: billDate || new Date().toISOString().split('T')[0],
+                        billMonth: billingMonth
                     });
                 }
             } else {
@@ -321,6 +325,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setInterest(0);
       setDueDate('');
       setBillDate(new Date().toISOString().split('T')[0]);
+      setBillingMonth(new Date().toISOString().slice(0, 7));
       setBillingFrequency('MONTHLY');
   };
 
@@ -387,6 +392,12 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   const activeLayout = activeSociety.billLayout || defaultLayout;
 
+  const formatBillingMonth = (monthStr?: string) => {
+    if (!monthStr) return '';
+    const date = new Date(monthStr + '-01');
+    return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+  };
+
   return (
     <div className="space-y-6">
       <StandardToolbar 
@@ -434,7 +445,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 <th className="p-4 font-semibold text-slate-600 text-sm">Bill ID</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Unit / Member</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Amount</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Bill Date</th>
+                <th className="p-4 font-semibold text-slate-600 text-sm">For Month</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Due Date</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
                 <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
@@ -449,7 +460,9 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     <div className="text-xs text-slate-500">{bill.residentName}</div>
                   </td>
                   <td className="p-4 font-bold text-slate-800 text-lg">₹{bill.totalAmount.toFixed(2)}</td>
-                  <td className="p-4 text-sm text-slate-600">{bill.generatedDate}</td>
+                  <td className="p-4 text-sm text-slate-600">
+                      {bill.billMonth ? formatBillingMonth(bill.billMonth) : bill.generatedDate}
+                  </td>
                   <td className="p-4 text-sm text-slate-600">{bill.dueDate}</td>
                   <td className="p-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bill.status)}`}>
@@ -701,11 +714,22 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                           </div>
                       </div>
 
-                      {/* Bill To */}
-                      <div className="mb-8">
-                          <p className="text-xs font-bold text-slate-400 uppercase mb-1">Bill To</p>
-                          <h3 className="text-xl font-bold text-slate-900">{previewBill.residentName}</h3>
-                          <p className="text-slate-600">Unit No: <span className="font-semibold">{previewBill.unitNumber}</span></p>
+                      {/* Bill To & Bill Month */}
+                      <div className="mb-8 flex justify-between items-end">
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Bill To</p>
+                            <h3 className="text-xl font-bold text-slate-900">{previewBill.residentName}</h3>
+                            <p className="text-slate-600">Unit No: <span className="font-semibold">{previewBill.unitNumber}</span></p>
+                          </div>
+                          {previewBill.billMonth && (
+                              <div className="text-right bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                  <p className="text-xs font-bold text-slate-400 uppercase mb-1">Bill for the month of</p>
+                                  <p className="text-lg font-bold text-slate-800 flex items-center justify-end gap-2">
+                                      <CalendarRange size={18} className="text-indigo-600" />
+                                      {formatBillingMonth(previewBill.billMonth)}
+                                  </p>
+                              </div>
+                          )}
                       </div>
 
                       {/* Items Table */}
@@ -963,6 +987,16 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                       </select>
                     </div>
                     <div>
+                       <label className="block text-sm font-bold text-slate-900 mb-2">Bill for the Month of</label>
+                       <input 
+                        type="month" 
+                        required
+                        className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                        value={billingMonth}
+                        onChange={e => setBillingMonth(e.target.value)}
+                      />
+                    </div>
+                    <div>
                        <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date</label>
                        <input 
                         type="date" 
@@ -995,7 +1029,17 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                               <p className="text-sm text-indigo-700">This will generate {residents.length} bills. Amounts set to "Per Sq. Ft." will be calculated automatically. All Monthly rates below will be multiplied by <strong>{getMultiplier()}</strong> for {billingFrequency.toLowerCase()} billing.</p>
                           </div>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-900 mb-2">Bill for the Month of</label>
+                          <input 
+                            type="month" 
+                            required
+                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                            value={billingMonth}
+                            onChange={e => setBillingMonth(e.target.value)}
+                          />
+                        </div>
                         <div>
                           <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date</label>
                           <input 
@@ -1031,7 +1075,17 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                           </div>
                       </div>
                       
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           <div>
+                              <label className="block text-sm font-bold text-slate-900 mb-2">Bill for the Month of</label>
+                              <input 
+                                type="month" 
+                                required
+                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                                value={billingMonth}
+                                onChange={e => setBillingMonth(e.target.value)}
+                              />
+                           </div>
                            <div>
                               <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date (Default)</label>
                               <input 

@@ -67,7 +67,7 @@ export interface BillItem {
 
 export interface PaymentDetails {
   date: string;
-  mode: 'Cash' | 'Cheque' | 'UPI' | 'Bank Transfer';
+  mode: 'Cash' | 'Cheque' | 'UPI' | 'Bank Transfer' | 'Debit Note' | 'Credit Note';
   reference: string;
   remarks: string;
 }
@@ -86,6 +86,7 @@ export interface Bill {
   dueDate: string;
   status: PaymentStatus;
   generatedDate: string;
+  billMonth?: string; // Format YYYY-MM
   
   paymentDetails?: PaymentDetails;
 }
