@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
   Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange,
   Copy, Check, MessageCircle, FileSpreadsheet, File, FileEdit,
-  Trash2, Plus, Share2, DownloadCloud, Keyboard, Scale
+  Trash2, Plus, Share2, DownloadCloud, Keyboard, Scale, Lightbulb
 } from 'lucide-react';
 
 interface StandardToolbarProps {
@@ -99,6 +99,41 @@ const IMPORTANT_BYE_LAWS = [
     }
 ];
 
+const SOCIETY_TIPS = [
+    {
+        title: "Nominee ≠ Owner",
+        content: "A nominee is merely a trustee of the property after the death of a member. They do not automatically become the owner. The property must be transferred to the legal heirs as per the Will or Succession Law."
+    },
+    {
+        title: "Leakage Responsibility",
+        content: "If leakage originates from the external walls or terrace, it is the Society's responsibility to repair. If it originates from a flat (e.g., bathroom/kitchen pipes) damaging the flat below, it is the respective Member's responsibility."
+    },
+    {
+        title: "Associate Member Rights",
+        content: "An Associate Member (name appearing second on the share certificate) has no right to vote in the AGM unless the Original Member is absent and provides written consent."
+    },
+    {
+        title: "Non-Occupancy Charges Limit",
+        content: "Societies cannot charge Non-Occupancy Charges more than 10% of the service charges (excluding municipal taxes). Charging 'double maintenance' to tenants is illegal."
+    },
+    {
+        title: "Parking is for Vehicles Only",
+        content: "Stilt or open parking spaces allotted to members cannot be used for storage of household items, furniture, or construction debris. It creates a fire hazard."
+    },
+    {
+        title: "Transfer Premium Cap",
+        content: "The premium for the transfer of a flat (Transfer Fee) cannot exceed ₹25,000. Any demand for 'voluntary donations' for transferring membership is illegal."
+    },
+    {
+        title: "Right to Information",
+        content: "Every member has the right to inspect the books of accounts, minutes of meetings, and statutory registers of the society during office hours by paying a nominal copying fee."
+    },
+    {
+        title: "Structural Changes",
+        content: "Removal of pillars, beams, or load-bearing walls inside a flat is strictly prohibited and endangers the entire building structure. Always consult a structural engineer before renovation."
+    }
+];
+
 const StandardToolbar: React.FC<StandardToolbarProps> = ({ 
   onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className 
 }) => {
@@ -111,12 +146,19 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   const [showHelp, setShowHelp] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [showByeLaws, setShowByeLaws] = useState(false);
+  const [showTips, setShowTips] = useState(false);
   
   // Feature States
   const [calcInput, setCalcInput] = useState('');
   const [copiedDescIndex, setCopiedDescIndex] = useState<string | null>(null);
   const [selectedLawCategory, setSelectedLawCategory] = useState<string>(IMPORTANT_BYE_LAWS[0].category);
+  const [currentTipIndex, setCurrentTipIndex] = useState(0);
   
+  // Initialize Tip Index randomly on mount
+  useEffect(() => {
+    setCurrentTipIndex(Math.floor(Math.random() * SOCIETY_TIPS.length));
+  }, []);
+
   // Reminder State
   const [reminderList, setReminderList] = useState<{id: number, text: string, date: string}[]>([
       { id: 1, text: 'Submit Monthly TDS Return', date: new Date().toISOString().split('T')[0] },
@@ -177,6 +219,15 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
 
   const deleteReminder = (id: number) => {
       setReminderList(reminderList.filter(r => r.id !== id));
+  };
+
+  // Tips Logic
+  const nextTip = () => {
+      setCurrentTipIndex((prev) => (prev + 1) % SOCIETY_TIPS.length);
+  };
+
+  const prevTip = () => {
+      setCurrentTipIndex((prev) => (prev - 1 + SOCIETY_TIPS.length) % SOCIETY_TIPS.length);
   };
 
   // Excel Export Logic (Table Scraper)
@@ -272,6 +323,11 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
              <span className="absolute top-1 right-3 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
         )}
         <span className={labelClass}>Reminder</span>
+      </button>
+
+      <button onClick={() => setShowTips(!showTips)} className={btnClass} title="Tips of the Day">
+        <Lightbulb size={iconSize} className="text-yellow-500 group-hover:scale-110 transition-transform" fill="currentColor" fillOpacity={0.2} />
+        <span className={labelClass}>Tips</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
@@ -604,7 +660,39 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
          </div>
       )}
 
-      {/* 8. Help Popup */}
+       {/* 8. Tips of the Day Popup */}
+       {showTips && (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-white p-0 rounded-xl shadow-2xl border border-amber-200 w-full max-w-md text-left overflow-hidden ring-4 ring-amber-50">
+             <div className="bg-amber-100 p-4 flex justify-between items-center border-b border-amber-200">
+                 <h4 className="font-bold text-amber-900 flex items-center gap-2">
+                     <Lightbulb size={24} className="text-amber-600" fill="currentColor" /> 
+                     Tip of the Day
+                 </h4>
+                 <button onClick={() => setShowTips(false)} className="text-amber-700 hover:text-amber-900"><X size={20}/></button>
+             </div>
+             
+             <div className="p-6 text-center">
+                 <h5 className="text-lg font-bold text-slate-800 mb-2">{SOCIETY_TIPS[currentTipIndex].title}</h5>
+                 <p className="text-slate-600 text-sm leading-relaxed mb-6">
+                     {SOCIETY_TIPS[currentTipIndex].content}
+                 </p>
+                 
+                 <div className="flex justify-center gap-4">
+                     <button onClick={prevTip} className="p-2 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition-colors">
+                         <ChevronLeft size={20} />
+                     </button>
+                     <span className="text-xs font-bold text-slate-400 py-2">
+                         {currentTipIndex + 1} / {SOCIETY_TIPS.length}
+                     </span>
+                     <button onClick={nextTip} className="p-2 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition-colors">
+                         <ChevronRight size={20} />
+                     </button>
+                 </div>
+             </div>
+          </div>
+       )}
+
+      {/* 9. Help Popup */}
       {showHelp && (
          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm p-4">
              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
@@ -623,6 +711,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                              <li className="flex items-center gap-2"><Search size={16} className="text-purple-600"/> Focus search bar</li>
                              <li className="flex items-center gap-2"><CalendarRange size={16} className="text-violet-600"/> Filter by Date Range</li>
                              <li className="flex items-center gap-2"><Scale size={16} className="text-pink-600"/> View Model Bye-Laws</li>
+                             <li className="flex items-center gap-2"><Lightbulb size={16} className="text-amber-500"/> Important Society Tips</li>
                          </ul>
                      </div>
                      <div>
