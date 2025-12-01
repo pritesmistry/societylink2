@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Resident, Society, Bill, Expense, Income } from '../types';
-import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark, CalendarClock, Building } from 'lucide-react';
+import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark, CalendarClock, Building, FolderOpen, Printer, Copy, Check } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface StatutoryRegistersProps {
@@ -12,7 +12,7 @@ interface StatutoryRegistersProps {
   incomes?: Income[];
 }
 
-type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX' | 'DUE_DATES' | 'CONVEYANCE_DEED';
+type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX' | 'DUE_DATES' | 'CONVEYANCE_DEED' | 'SOCIETY_FORMS';
 
 declare global {
   interface Window {
@@ -22,6 +22,8 @@ declare global {
 
 const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, activeSociety, bills = [], expenses = [], incomes = [] }) => {
   const [activeTab, setActiveTab] = useState<RegisterType>('I_REGISTER');
+  const [selectedFormIndex, setSelectedFormIndex] = useState(0);
+  const [copiedForm, setCopiedForm] = useState(false);
 
   // Filter only owners for registers usually
   const members = residents.filter(r => r.occupancyType === 'Owner');
@@ -197,6 +199,181 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
     "Search Report of last 30 years"
   ];
 
+  const SOCIETY_FORMS_DATA = [
+      {
+          title: "Membership Application (Form 3)",
+          description: "For new members to apply for membership in the society.",
+          content: `FORM NO. 3
+[Under Bye-law No. 19(A)(V)]
+
+APPLICATION FOR MEMBERSHIP OF THE SOCIETY
+
+To,
+The Hon. Secretary,
+${activeSociety.name}
+${activeSociety.address}
+
+Sir,
+
+1. I, Shri/Smt [APPLICANT_NAME], hereby apply for membership of the [SOCIETY_NAME] Co-operative Housing Society Ltd.
+
+2. I intend to purchase/hold the Flat No. [FLAT_NO] in the said society.
+
+3. I have paid the entrance fee of Rs. 100/- and Share Capital of Rs. 500/-.
+
+4. I agree to abide by the Bye-laws of the society and the amendments made therein from time to time.
+
+5. I declare that I do not hold any other flat in this city in the area of operation of the society in my name or in the name of any member of my family.
+
+6. The particulars furnished by me are true to the best of my knowledge and belief.
+
+Yours faithfully,
+
+(Signature of Applicant)
+Place: _____________
+Date: _____________`
+      },
+      {
+          title: "Associate Membership (Form 5)",
+          description: "For adding a joint holder (Associate Member) to a flat.",
+          content: `FORM NO. 5
+[Under Bye-law No. 19(B)]
+
+APPLICATION FOR ASSOCIATE MEMBERSHIP
+
+To,
+The Hon. Secretary,
+${activeSociety.name}
+${activeSociety.address}
+
+Sir,
+
+I, Shri/Smt [ASSOCIATE_NAME], wish to be an Associate Member of the Society with Shri/Smt [ORIGINAL_MEMBER_NAME], who is a member of the society holding Flat No. [FLAT_NO].
+
+I have no objection to the said member holding the shares and interest in the capital/property of the society.
+
+I agree to abide by the Bye-laws of the society.
+
+I am remitting herewith the entrance fee of Rs. 100/-.
+
+Yours faithfully,
+
+(Signature of Associate Member)
+
+----------------------------------------------------
+
+CONSENT OF THE ORIGINAL MEMBER
+
+I, [ORIGINAL_MEMBER_NAME], a member of the society, recommend the application of Shri/Smt [ASSOCIATE_NAME] for Associate Membership.
+
+(Signature of Original Member)
+Date: _____________`
+      },
+      {
+          title: "Nomination Form (Form 14)",
+          description: "To nominate a person to inherit shares/interest after death.",
+          content: `FORM NO. 14
+[Under Bye-law No. 32]
+
+FORM OF NOMINATION
+
+To,
+The Hon. Secretary,
+${activeSociety.name}
+${activeSociety.address}
+
+Sir,
+
+I, Shri/Smt [MEMBER_NAME], member of the society holding Flat No. [FLAT_NO] and Share Certificate No. [SHARE_CERT_NO], hereby nominate the person(s) mentioned below to whom my share and interest in the capital/property of the society shall be transferred in the event of my death.
+
+1. Name of Nominee: _______________________________
+   Relationship: ___________________________________
+   Percentage of Share: ____________________________
+   Address: ________________________________________
+
+2. Name of Nominee: _______________________________
+   Relationship: ___________________________________
+   Percentage of Share: ____________________________
+   Address: ________________________________________
+
+Place: _____________
+Date: _____________
+
+(Signature of Member)
+
+Witness 1: ________________ (Signature)
+Witness 2: ________________ (Signature)`
+      },
+      {
+          title: "Resignation / Termination (Form 21)",
+          description: "Notice of resignation from membership of the society.",
+          content: `FORM NO. 21
+[Under Bye-law No. 27(a)]
+
+LETTER OF RESIGNATION
+
+To,
+The Hon. Secretary,
+${activeSociety.name}
+${activeSociety.address}
+
+Sir,
+
+I, Shri/Smt [MEMBER_NAME], member of the society holding Flat No. [FLAT_NO], hereby give notice of my resignation from the membership of the society.
+
+1. I have sold/transferred my flat to Shri/Smt [BUYER_NAME].
+2. I request you to transfer my shares and interest in the capital/property of the society to the said transferee.
+3. I declare that there are no dues pending against me payable to the society.
+4. Please return my Share Certificate duly endorsed in the name of the transferee.
+
+Thanking you,
+
+Yours faithfully,
+
+(Signature of Member)
+Place: _____________
+Date: _____________`
+      },
+      {
+          title: "No Objection Certificate (NOC)",
+          description: "Application for NOC to sell/transfer or mortgage flat.",
+          content: `APPLICATION FOR NOC
+
+To,
+The Hon. Secretary,
+${activeSociety.name}
+${activeSociety.address}
+
+Sub: Application for No Objection Certificate (NOC)
+
+Sir,
+
+I am the owner of Flat No. [FLAT_NO] in the society.
+
+I intend to [SELL / MORTGAGE / RENT] my flat to Mr./Ms. [NAME_OF_PARTY].
+
+I request the society to issue a No Objection Certificate (NOC) for the same. I confirm that I have paid all the dues of the society till date.
+
+I enclose herewith:
+1. Copy of Sale/Lease Agreement (Draft)
+2. Copy of Loan Sanction Letter (if applicable)
+
+Kindly issue the NOC at the earliest.
+
+Yours faithfully,
+
+(Signature of Member)
+[MEMBER_NAME]
+Date: _____________`
+      }
+  ];
+
+  const handleCopyForm = (text: string) => {
+      navigator.clipboard.writeText(text);
+      setCopiedForm(true);
+      setTimeout(() => setCopiedForm(false), 2000);
+  };
+
   const downloadPDF = (elementId: string, filename: string) => {
     const element = document.getElementById(elementId);
     if (!element) return;
@@ -208,7 +385,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'RULES_REGULATIONS' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED') ? 'portrait' : 'landscape' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' || activeTab === 'SOCIETY_FORMS') ? 'portrait' : 'landscape' }
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
@@ -263,6 +440,12 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
               <ScrollText size={16} /> Rules & Regulations
           </button>
           <button 
+            onClick={() => setActiveTab('SOCIETY_FORMS')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'SOCIETY_FORMS' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <FolderOpen size={16} /> Society Forms
+          </button>
+          <button 
             onClick={() => setActiveTab('CONVEYANCE_DEED')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CONVEYANCE_DEED' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
@@ -306,7 +489,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="register-container" 
-            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
+            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' || activeTab === 'SOCIETY_FORMS' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -323,6 +506,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                      activeTab === 'INCOME_TAX' ? 'Income Tax Compliance Report' :
                      activeTab === 'DUE_DATES' ? 'Statutory Compliance Calendar' :
                      activeTab === 'CONVEYANCE_DEED' ? 'Conveyance Deed Status Tracker' :
+                     activeTab === 'SOCIETY_FORMS' ? 'Standard Society Statutory Forms' :
                      'Form "O" - Rectification Report'}
                 </h2>
              </div>
@@ -583,6 +767,63 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                             </div>
                         </div>
                     </div>
+                 </div>
+             )}
+
+             {/* SOCIETY FORMS */}
+             {activeTab === 'SOCIETY_FORMS' && (
+                 <div className="h-full flex flex-col md:flex-row gap-6 break-inside-avoid">
+                     {/* Sidebar List of Forms */}
+                     <div className="w-full md:w-1/3 bg-slate-50 border-r border-slate-200 p-4 rounded-lg print:hidden">
+                         <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <FolderOpen size={18} /> Available Forms
+                         </h3>
+                         <div className="space-y-2">
+                             {SOCIETY_FORMS_DATA.map((form, idx) => (
+                                 <button
+                                    key={idx}
+                                    onClick={() => setSelectedFormIndex(idx)}
+                                    className={`w-full text-left p-3 rounded-lg text-sm border transition-all ${
+                                        selectedFormIndex === idx 
+                                        ? 'bg-white border-indigo-500 shadow-md text-indigo-700 font-bold' 
+                                        : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-600'
+                                    }`}
+                                 >
+                                     <div className="flex justify-between items-center mb-1">
+                                         <span>{form.title}</span>
+                                     </div>
+                                     <p className="text-xs text-slate-400 font-normal">{form.description}</p>
+                                 </button>
+                             ))}
+                         </div>
+                     </div>
+
+                     {/* Form Preview Area */}
+                     <div className="w-full md:w-2/3">
+                         <div className="flex justify-between items-center mb-4 print:hidden">
+                             <h3 className="font-bold text-slate-800 text-lg">Form Preview</h3>
+                             <div className="flex gap-2">
+                                 <button 
+                                    onClick={() => handleCopyForm(SOCIETY_FORMS_DATA[selectedFormIndex].content)}
+                                    className={`text-xs px-3 py-1.5 rounded flex items-center gap-1 border transition-colors ${copiedForm ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'}`}
+                                 >
+                                     {copiedForm ? <Check size={14} /> : <Copy size={14} />} {copiedForm ? 'Copied' : 'Copy Text'}
+                                 </button>
+                                 <button 
+                                    onClick={() => window.print()}
+                                    className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded flex items-center gap-1 hover:bg-indigo-700"
+                                 >
+                                     <Printer size={14} /> Print Form
+                                 </button>
+                             </div>
+                         </div>
+                         
+                         <div className="border border-slate-300 p-8 rounded-lg bg-white shadow-sm min-h-[500px]">
+                            <pre className="whitespace-pre-wrap font-serif text-slate-800 leading-relaxed text-sm">
+                                {SOCIETY_FORMS_DATA[selectedFormIndex].content}
+                            </pre>
+                         </div>
+                     </div>
                  </div>
              )}
 

@@ -126,7 +126,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
 
       // Debits
       Object.entries(currentStats.expensesByCategory).forEach(([cat, amt]) => {
-          ledgers.push({ name: `${cat} Expenses`, debit: amt, credit: 0, group: 'Expenses' });
+          ledgers.push({ name: `${cat} Expenses`, debit: Number(amt), credit: 0, group: 'Expenses' });
       });
       ledgers.push({ name: 'Sundry Debtors (Members)', debit: currentStats.totalReceivables, credit: 0, group: 'Current Assets' });
       ledgers.push({ name: 'Cash / Bank Balance', debit: currentStats.cashInHand, credit: 0, group: 'Current Assets' });
