@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
-  Printer, FileText, ChevronLeft, ChevronRight, X 
+  Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange 
 } from 'lucide-react';
 
 interface StandardToolbarProps {
@@ -12,15 +12,23 @@ interface StandardToolbarProps {
   onPrint?: () => void;
   onPrev?: () => void;
   onNext?: () => void;
+  onPeriodChange?: (startDate: string, endDate: string) => void;
   className?: string;
 }
 
 const StandardToolbar: React.FC<StandardToolbarProps> = ({ 
-  onSave, onModify, onSearch, onPrint, onPrev, onNext, className 
+  onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className 
 }) => {
   const [showCalculator, setShowCalculator] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showPeriod, setShowPeriod] = useState(false);
   const [calcInput, setCalcInput] = useState('');
+  
+  // Period State
+  const [period, setPeriod] = useState({
+    from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    to: new Date().toISOString().split('T')[0]
+  });
   
   // Calendar State
   const [calDate, setCalDate] = useState(new Date());
@@ -40,6 +48,14 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       }
   };
 
+  const handlePeriodApply = () => {
+      if (onPeriodChange) {
+          onPeriodChange(period.from, period.to);
+      }
+      setShowPeriod(false);
+      alert(`Period Filter Applied: ${period.from} to ${period.to}`); // Visual confirmation for now
+  };
+
   // Calendar Helpers
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -53,7 +69,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 
-  const btnClass = "p-2 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px] group";
+  const btnClass = "p-2 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px] group relative";
   const iconSize = 24; 
   const labelClass = "text-[10px] font-medium uppercase tracking-wide group-hover:text-indigo-600 text-slate-500";
 
@@ -72,6 +88,11 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       <button onClick={onSearch} className={btnClass} title="Search">
         <Search size={iconSize} className="text-purple-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Search</span>
+      </button>
+
+      <button onClick={() => setShowPeriod(!showPeriod)} className={btnClass} title="Select Period">
+        <CalendarRange size={iconSize} className="text-violet-600 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>Period</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
@@ -121,6 +142,42 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <HelpCircle size={iconSize} className="text-cyan-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Help</span>
       </button>
+
+      {/* Select Period Popup */}
+      {showPeriod && (
+         <div className="absolute top-20 left-16 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 w-64 text-left">
+             <div className="flex justify-between items-center mb-3">
+                 <h4 className="font-bold text-slate-700">Select Period</h4>
+                 <button onClick={() => setShowPeriod(false)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
+             </div>
+             <div className="space-y-3">
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">From Date</label>
+                    <input 
+                        type="date" 
+                        value={period.from} 
+                        onChange={(e) => setPeriod({...period, from: e.target.value})}
+                        className="w-full border border-slate-300 rounded p-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                    />
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">To Date</label>
+                    <input 
+                        type="date" 
+                        value={period.to} 
+                        onChange={(e) => setPeriod({...period, to: e.target.value})}
+                        className="w-full border border-slate-300 rounded p-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                    />
+                </div>
+                <button 
+                    onClick={handlePeriodApply} 
+                    className="w-full bg-indigo-600 text-white rounded py-2 text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                    Apply Filter
+                </button>
+            </div>
+         </div>
+      )}
 
       {/* Simple Calculator Popup */}
       {showCalculator && (
