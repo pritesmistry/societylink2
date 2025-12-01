@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { 
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
   Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange,
-  Copy, Check, MessageCircle, FileSpreadsheet, File, FileEdit
+  Copy, Check, MessageCircle, FileSpreadsheet, File, FileEdit,
+  Trash2, Plus, Share2, DownloadCloud, Keyboard
 } from 'lucide-react';
 
 interface StandardToolbarProps {
@@ -57,14 +58,29 @@ const STANDARD_DESCRIPTIONS = {
 const StandardToolbar: React.FC<StandardToolbarProps> = ({ 
   onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className 
 }) => {
+  // Toggle States
   const [showCalculator, setShowCalculator] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showPeriod, setShowPeriod] = useState(false);
   const [showStdDesc, setShowStdDesc] = useState(false);
-  const [calcInput, setCalcInput] = useState('');
+  const [showReminders, setShowReminders] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showWhatsApp, setShowWhatsApp] = useState(false);
   
-  // Standard Description Copy State
+  // Feature States
+  const [calcInput, setCalcInput] = useState('');
   const [copiedDescIndex, setCopiedDescIndex] = useState<string | null>(null);
+  
+  // Reminder State
+  const [reminderList, setReminderList] = useState<{id: number, text: string, date: string}[]>([
+      { id: 1, text: 'Submit Monthly TDS Return', date: new Date().toISOString().split('T')[0] },
+      { id: 2, text: 'Renew Lift AMC', date: '2023-11-01' }
+  ]);
+  const [newReminder, setNewReminder] = useState({ text: '', date: '' });
+
+  // WhatsApp State
+  const [waNumber, setWaNumber] = useState('');
+  const [waMessage, setWaMessage] = useState('Here is the requested document from SocietyLink.');
 
   // Period State
   const [period, setPeriod] = useState({
@@ -74,6 +90,8 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   
   // Calendar State
   const [calDate, setCalDate] = useState(new Date());
+
+  // --- HANDLERS ---
 
   const handleCalc = (val: string) => {
       if (val === '=') {
@@ -95,13 +113,60 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
           onPeriodChange(period.from, period.to);
       }
       setShowPeriod(false);
-      alert(`Period Filter Applied: ${period.from} to ${period.to}`); // Visual confirmation for now
   };
 
   const handleCopyDesc = (text: string, id: string) => {
       navigator.clipboard.writeText(text);
       setCopiedDescIndex(id);
       setTimeout(() => setCopiedDescIndex(null), 1500);
+  };
+
+  // Reminder Logic
+  const addReminder = () => {
+      if (newReminder.text) {
+          setReminderList([...reminderList, { id: Date.now(), text: newReminder.text, date: newReminder.date || 'No Date' }]);
+          setNewReminder({ text: '', date: '' });
+      }
+  };
+
+  const deleteReminder = (id: number) => {
+      setReminderList(reminderList.filter(r => r.id !== id));
+  };
+
+  // Excel Export Logic (Table Scraper)
+  const handleExcelExport = () => {
+      const table = document.querySelector('table');
+      if (!table) {
+          alert("No data table found on this screen to export.");
+          return;
+      }
+      
+      let csvContent = "data:text/csv;charset=utf-8,";
+      const rows = table.querySelectorAll('tr');
+      
+      rows.forEach(row => {
+          const cols = row.querySelectorAll('th, td');
+          const rowData: string[] = [];
+          cols.forEach(col => rowData.push(`"${(col.textContent || '').replace(/"/g, '""')}"`));
+          csvContent += rowData.join(",") + "\r\n";
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
+  // WhatsApp Logic
+  const handleWhatsAppShare = () => {
+      if (waNumber) {
+          const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`;
+          window.open(url, '_blank');
+          setShowWhatsApp(false);
+      }
   };
 
   // Calendar Helpers
@@ -122,7 +187,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   const labelClass = "text-[10px] font-medium uppercase tracking-wide group-hover:text-indigo-600 text-slate-500";
 
   return (
-    <div className={`bg-white border-b border-slate-200 p-2 mb-6 flex flex-wrap items-center gap-1 shadow-sm rounded-lg ${className} relative`}>
+    <div className={`bg-white border-b border-slate-200 p-2 mb-6 flex flex-wrap items-center gap-1 shadow-sm rounded-lg ${className} relative z-40`}>
       <button onClick={onSave} className={btnClass} title="Save / Add New">
         <Save size={iconSize} className="text-green-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Save</span>
@@ -155,14 +220,17 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>Calendar</span>
       </button>
 
-      <button onClick={() => alert("No reminders set")} className={btnClass} title="Reminders">
+      <button onClick={() => setShowReminders(!showReminders)} className={btnClass} title="Reminders">
         <Bell size={iconSize} className="text-amber-500 group-hover:scale-110 transition-transform" />
+        {reminderList.length > 0 && (
+             <span className="absolute top-1 right-3 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+        )}
         <span className={labelClass}>Reminder</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
-      <button onClick={onPrint || (() => window.print())} className={btnClass} title="Print">
+      <button onClick={() => window.print()} className={btnClass} title="Print Page">
         <Printer size={iconSize} className="text-slate-700 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Print</span>
       </button>
@@ -174,23 +242,23 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
-      {/* NEW EXPORT BUTTONS */}
-      <button onClick={() => alert("WhatsApp Share feature coming soon")} className={btnClass} title="WhatsApp">
+      {/* EXPORT BUTTONS */}
+      <button onClick={() => setShowWhatsApp(true)} className={btnClass} title="WhatsApp">
         <MessageCircle size={iconSize} className="text-green-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>WhatsApp</span>
       </button>
 
-      <button onClick={() => alert("Export to Excel feature coming soon")} className={btnClass} title="Excel">
+      <button onClick={handleExcelExport} className={btnClass} title="Export Table to CSV">
         <FileSpreadsheet size={iconSize} className="text-emerald-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Excel</span>
       </button>
 
-      <button onClick={() => alert("Export to PDF feature coming soon")} className={btnClass} title="PDF">
+      <button onClick={onPrint || (() => window.print())} className={btnClass} title="Export PDF">
         <File size={iconSize} className="text-red-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>PDF</span>
       </button>
 
-      <button onClick={() => alert("Export to Word feature coming soon")} className={btnClass} title="Word">
+      <button onClick={() => alert("Word export requires .docx generation library. Please use PDF for now.")} className={btnClass} title="Word">
         <FileEdit size={iconSize} className="text-blue-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Word</span>
       </button>
@@ -209,12 +277,15 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
 
       <div className="flex-1"></div>
 
-      <button onClick={() => alert("Help Documentation")} className={`${btnClass} ml-auto`} title="Help">
+      <button onClick={() => setShowHelp(true)} className={`${btnClass} ml-auto`} title="Help">
         <HelpCircle size={iconSize} className="text-cyan-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Help</span>
       </button>
 
-      {/* Select Period Popup */}
+
+      {/* --- POPUPS --- */}
+
+      {/* 1. Select Period Popup */}
       {showPeriod && (
          <div className="absolute top-20 left-16 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 w-64 text-left">
              <div className="flex justify-between items-center mb-3">
@@ -250,7 +321,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
          </div>
       )}
 
-      {/* Standard Descriptions Popup */}
+      {/* 2. Standard Descriptions Popup */}
       {showStdDesc && (
          <div className="absolute top-20 right-0 md:right-auto md:left-1/2 md:-translate-x-1/4 z-50 bg-white p-0 rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg text-left overflow-hidden">
              <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
@@ -290,7 +361,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
          </div>
       )}
 
-      {/* Simple Calculator Popup */}
+      {/* 3. Simple Calculator Popup */}
       {showCalculator && (
         <div className="absolute top-20 left-1/3 z-50 bg-slate-800 p-4 rounded-xl shadow-2xl text-white w-64 border border-slate-700">
            <div className="flex justify-between mb-2">
@@ -315,7 +386,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         </div>
       )}
 
-      {/* Calendar Popup */}
+      {/* 4. Calendar Popup */}
       {showCalendar && (
         <div className="absolute top-20 left-1/3 ml-16 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 w-80 text-slate-800">
            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
@@ -348,6 +419,135 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
            </div>
         </div>
       )}
+
+      {/* 5. Reminders Popup */}
+      {showReminders && (
+        <div className="absolute top-20 left-1/3 z-50 bg-white p-6 rounded-xl shadow-2xl border border-slate-200 w-80 text-left">
+           <div className="flex justify-between items-center mb-4 border-b pb-2">
+               <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                   <Bell size={18} className="text-amber-500" /> Reminders
+               </h4>
+               <button onClick={() => setShowReminders(false)}><X size={18} className="text-slate-400" /></button>
+           </div>
+           
+           <div className="flex gap-2 mb-4">
+               <input 
+                   type="text" 
+                   placeholder="Add new task..." 
+                   className="flex-1 border border-slate-300 rounded px-2 py-1 text-sm focus:outline-indigo-500"
+                   value={newReminder.text}
+                   onChange={e => setNewReminder({...newReminder, text: e.target.value})}
+               />
+               <button onClick={addReminder} className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700">
+                   <Plus size={18} />
+               </button>
+           </div>
+
+           <div className="space-y-2 max-h-48 overflow-y-auto">
+               {reminderList.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No pending reminders.</p>}
+               {reminderList.map(r => (
+                   <div key={r.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm group">
+                       <div>
+                           <p className="font-medium text-slate-700">{r.text}</p>
+                           {r.date && <p className="text-xs text-slate-400">{r.date}</p>}
+                       </div>
+                       <button onClick={() => deleteReminder(r.id)} className="text-slate-300 hover:text-red-500">
+                           <Trash2 size={14} />
+                       </button>
+                   </div>
+               ))}
+           </div>
+        </div>
+      )}
+
+      {/* 6. WhatsApp Popup */}
+      {showWhatsApp && (
+         <div className="absolute top-20 right-20 z-50 bg-white p-6 rounded-xl shadow-2xl border border-slate-200 w-80 text-left">
+             <div className="flex justify-between items-center mb-4">
+                 <h4 className="font-bold text-green-600 flex items-center gap-2">
+                     <MessageCircle size={20} /> Share via WhatsApp
+                 </h4>
+                 <button onClick={() => setShowWhatsApp(false)}><X size={18} className="text-slate-400" /></button>
+             </div>
+             <div className="space-y-3">
+                 <div>
+                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Phone Number</label>
+                     <input 
+                        type="tel" 
+                        placeholder="e.g. 919876543210"
+                        className="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                        value={waNumber}
+                        onChange={e => setWaNumber(e.target.value)}
+                     />
+                 </div>
+                 <div>
+                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Message</label>
+                     <textarea 
+                        rows={3}
+                        className="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                        value={waMessage}
+                        onChange={e => setWaMessage(e.target.value)}
+                     />
+                 </div>
+                 <button 
+                    onClick={handleWhatsAppShare}
+                    className="w-full bg-green-500 text-white py-2 rounded font-bold hover:bg-green-600 flex items-center justify-center gap-2"
+                 >
+                     <Share2 size={16} /> Send Message
+                 </button>
+             </div>
+         </div>
+      )}
+
+      {/* 7. Help Popup */}
+      {showHelp && (
+         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm p-4">
+             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
+                 <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+                     <h3 className="text-lg font-bold flex items-center gap-2">
+                         <HelpCircle size={20} /> Help & Keyboard Shortcuts
+                     </h3>
+                     <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                 </div>
+                 <div className="p-6 grid grid-cols-2 gap-8">
+                     <div>
+                         <h4 className="font-bold text-slate-800 mb-3 border-b pb-2">Toolbar Legend</h4>
+                         <ul className="space-y-2 text-sm text-slate-600">
+                             <li className="flex items-center gap-2"><Save size={16} className="text-green-600"/> Save current form / Add New</li>
+                             <li className="flex items-center gap-2"><Edit3 size={16} className="text-blue-600"/> Modify settings or record</li>
+                             <li className="flex items-center gap-2"><Search size={16} className="text-purple-600"/> Focus search bar</li>
+                             <li className="flex items-center gap-2"><CalendarRange size={16} className="text-violet-600"/> Filter by Date Range</li>
+                             <li className="flex items-center gap-2"><FileSpreadsheet size={16} className="text-emerald-600"/> Export Table to Excel (CSV)</li>
+                         </ul>
+                     </div>
+                     <div>
+                         <h4 className="font-bold text-slate-800 mb-3 border-b pb-2">Shortcuts & Tips</h4>
+                         <ul className="space-y-3 text-sm text-slate-600">
+                             <li className="flex items-start gap-2">
+                                 <Keyboard size={16} className="text-slate-400 mt-0.5"/>
+                                 <span>Use <strong>Tab</strong> to navigate fields.</span>
+                             </li>
+                             <li className="flex items-start gap-2">
+                                 <DownloadCloud size={16} className="text-slate-400 mt-0.5"/>
+                                 <span><strong>PDF</strong> button downloads the specific report for the current section.</span>
+                             </li>
+                             <li className="flex items-start gap-2">
+                                 <Printer size={16} className="text-slate-400 mt-0.5"/>
+                                 <span><strong>Print</strong> opens the browser print dialog for the whole page.</span>
+                             </li>
+                         </ul>
+                         <div className="mt-4 bg-yellow-50 p-3 rounded text-xs text-yellow-800 border border-yellow-200">
+                             <strong>Note:</strong> Word export feature is currently in development. Please use PDF export for formal documents.
+                         </div>
+                     </div>
+                 </div>
+                 <div className="bg-slate-50 p-4 text-right">
+                     <button onClick={() => setShowHelp(false)} className="px-6 py-2 bg-slate-900 text-white rounded hover:bg-slate-800">Close</button>
+                 </div>
+             </div>
+         </div>
+      )}
+
     </div>
   );
 };
