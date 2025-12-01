@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -780,12 +780,26 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                       
                        {/* Footer Info */}
                       <div className="grid grid-cols-2 gap-8 border-t border-slate-200 pt-8">
-                          {activeLayout.showBankDetails && (
-                              <div>
-                                  <h4 className="font-bold text-sm text-slate-900 mb-2">Bank Details</h4>
-                                  <p className="text-sm text-slate-500 whitespace-pre-line">{activeSociety.bankDetails || 'N/A'}</p>
+                          <div className="flex gap-6 items-start">
+                              {activeLayout.showBankDetails && (
+                                  <div>
+                                      <h4 className="font-bold text-sm text-slate-900 mb-2">Bank Details</h4>
+                                      <p className="text-sm text-slate-500 whitespace-pre-line">{activeSociety.bankDetails || 'N/A'}</p>
+                                  </div>
+                              )}
+                              
+                              {/* QR Code Space */}
+                              <div className="flex flex-col items-center gap-1">
+                                  <div className="w-24 h-24 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400">
+                                      <div className="text-center">
+                                          <QrCode size={32} className="mx-auto mb-1 opacity-50" />
+                                          <span className="text-[10px] font-bold block">QR CODE</span>
+                                      </div>
+                                  </div>
+                                  <span className="text-[10px] text-slate-500 font-medium">Scan to Pay</span>
                               </div>
-                          )}
+                          </div>
+                          
                           <div className="text-right flex flex-col justify-end">
                                {activeLayout.showFooterNote && (
                                    <p className="text-xs text-slate-400 italic mb-8">{activeSociety.footerNote}</p>
