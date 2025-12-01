@@ -18,6 +18,8 @@ export interface BillLayout {
     rate: boolean;
     amount: boolean;
   };
+  template?: 'MODERN' | 'CLASSIC' | 'MINIMAL' | 'SPLIT_RECEIPT';
+  logo?: string;
 }
 
 export interface Society {
@@ -32,6 +34,7 @@ export interface Society {
   footerNote: string;
   totalUnits?: number;
   billLayout?: BillLayout;
+  billingHeads?: BillItem[];
 }
 
 export interface Resident {
