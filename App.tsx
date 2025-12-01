@@ -272,7 +272,7 @@ const App: React.FC = () => {
             <h2 className="text-2xl font-bold text-slate-800">
               {currentView === 'AI_INSIGHTS' ? 'AI Analysis & Insights' : 
                currentView === 'SOCIETIES' ? 'My Societies' :
-               currentView === 'REPORTS' ? 'Reports & Balance Sheet' :
+               currentView === 'REPORTS' ? 'Financial Reports' :
                currentView === 'MINUTES' ? 'Meeting Minutes' :
                currentView === 'RESIDENTS' ? 'Members' :
                currentView === 'RECEIPTS' ? 'Members Receipts' :

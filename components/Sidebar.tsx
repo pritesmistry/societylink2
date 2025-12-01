@@ -22,7 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { view: 'STATEMENTS', label: 'Statements', icon: ClipboardList },
     { view: 'BANK_RECONCILIATION', label: 'Bank Reconciliation', icon: Landmark },
     { view: 'STATUTORY_REGISTERS', label: 'Statutory Registers', icon: BookCopy },
-    { view: 'REPORTS', label: 'Reports', icon: FileBarChart },
+    { view: 'REPORTS', label: 'Financial Reports', icon: FileBarChart },
     { view: 'MINUTES', label: 'Minutes', icon: BookOpen },
     { view: 'NOTICES', label: 'Notices', icon: Bell },
     { view: 'TEMPLATES', label: 'Templates', icon: FileType },
