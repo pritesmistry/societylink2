@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { Bill, Expense, Resident, Society, PaymentStatus, Income } from '../types';
-import { Download, TrendingUp, Scale, AlertCircle, FileBarChart, Coins, ArrowRightLeft } from 'lucide-react';
+import { Download, TrendingUp, Scale, AlertCircle, FileBarChart, Coins, ArrowRightLeft, Calendar } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ReportsProps {
@@ -22,49 +21,75 @@ declare global {
 
 const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSociety, incomes }) => {
   const [activeTab, setActiveTab] = useState<ReportType>('BALANCE_SHEET');
+  // Default to current year ending March (e.g., if today is Oct 2023, current FY is 2023-24, ending 2024)
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth(); // 0-11
+  // If month is Jan-Mar (0-2), FY ends this year. Else next year.
+  const defaultFYEnd = currentMonth < 3 ? currentYear : currentYear + 1;
+  
+  const [selectedFYEnd, setSelectedFYEnd] = useState<number>(defaultFYEnd);
 
-  const financials = useMemo(() => {
+  // Helper to calculate financials for a specific date range
+  const calculateFinancialsForPeriod = (fyEndYear: number) => {
+    const startStr = `${fyEndYear - 1}-04-01`;
+    const endStr = `${fyEndYear}-03-31`;
+
+    const isInPeriod = (dateStr: string) => dateStr >= startStr && dateStr <= endStr;
+
+    // Filter Data
+    const periodBills = bills.filter(b => isInPeriod(b.generatedDate));
+    const periodExpenses = expenses.filter(e => isInPeriod(e.date));
+    const periodIncomes = incomes.filter(i => isInPeriod(i.date));
+
     // 1. Income (Billed)
-    const totalBilled = bills.reduce((sum, b) => sum + b.totalAmount, 0);
-    const collectedAmount = bills
+    const totalBilled = periodBills.reduce((sum, b) => sum + b.totalAmount, 0);
+    const collectedAmount = periodBills
       .filter(b => b.status === PaymentStatus.PAID)
       .reduce((sum, b) => sum + b.totalAmount, 0);
     
     // Other Income
-    const totalOtherIncome = incomes.reduce((sum, i) => sum + i.amount, 0);
+    const totalOtherIncome = periodIncomes.reduce((sum, i) => sum + i.amount, 0);
     const totalIncome = totalBilled + totalOtherIncome;
 
-    // 2. Receivables (Assets)
+    // 2. Receivables (Assets) - Point in time (Cumulative usually, but for period view we take bills generated)
+    // For Balance Sheet items (Assets/Liabilities), usually it's "As on Date". 
+    // Simplified logic: We sum up pending bills generated *up to* end date.
     const pendingBillsAmount = bills
-      .filter(b => b.status === PaymentStatus.PENDING || b.status === PaymentStatus.OVERDUE)
+      .filter(b => b.generatedDate <= endStr && (b.status === PaymentStatus.PENDING || b.status === PaymentStatus.OVERDUE))
       .reduce((sum, b) => sum + b.totalAmount, 0);
     
-    // Resident Opening Balances (Assumed to be Arrears/Assets)
     const totalOpeningBalances = residents.reduce((sum, r) => sum + r.openingBalance, 0);
-    
     const totalReceivables = pendingBillsAmount + totalOpeningBalances;
 
     // 3. Expenditure
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-    // 4. Cash Position (Assets)
-    // Cash = Collected Revenue + Other Income - Expenses paid
-    const cashInHand = (collectedAmount + totalOtherIncome) - totalExpenses;
+    // 4. Cash Position (Assets) - Simplified: Cash In - Cash Out (Cumulative)
+    // We calculate cumulative cash up to endStr
+    const allIncomesTillDate = incomes.filter(i => i.date <= endStr).reduce((s, i) => s + i.amount, 0);
+    const allCollectionsTillDate = bills.filter(b => b.status === PaymentStatus.PAID && b.paymentDetails && b.paymentDetails.date <= endStr).reduce((s, b) => s + b.totalAmount, 0);
+    const allExpensesTillDate = expenses.filter(e => e.date <= endStr).reduce((s, e) => s + e.amount, 0);
+    
+    // Assuming 0 opening cash for simplicity or derived from residents opening balance?
+    // Let's stick to the simpler formula used previously but time-bounded
+    const cashInHand = (allCollectionsTillDate + allIncomesTillDate) - allExpensesTillDate;
 
-    // 5. Net Surplus (Equity)
-    // Surplus = Total Income (Accrual Basis) - Total Expenses
+    // 5. Net Surplus (For the Period)
     const netSurplus = totalIncome - totalExpenses;
     
     // 6. Assets Breakdown
-    // For this simple system, we assume no Capital Expenditure tracking yet, so Fixed Assets = 0 or Manual
-    // We will display them as 0 to satisfy the "Fixed Asset" requirement.
     const fixedAssets = 0; 
     const currentAssets = cashInHand + totalReceivables;
     const totalAssets = fixedAssets + currentAssets;
     
-    // For the balance sheet liability side to match assets in this simple system:
-    // Equity/Funds = Total Assets
-    const totalFunds = totalAssets;
+    // Liabilities
+    const totalFunds = totalAssets; // Balancing figure simplified
+
+    // Grouping Expenses for UI
+    const expensesByCategory = periodExpenses.reduce((acc, curr) => {
+        acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+        return acc;
+    }, {} as Record<string, number>);
 
     return {
       totalBilled,
@@ -79,72 +104,77 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       fixedAssets,
       currentAssets,
       totalFunds,
-      totalOpeningBalances
+      totalOpeningBalances,
+      expensesByCategory,
+      periodIncomes,
+      periodExpenses
     };
-  }, [bills, expenses, residents, incomes]);
+  };
 
-  // Trial Balance Data Construction
+  const financials = useMemo(() => {
+    return {
+        current: calculateFinancialsForPeriod(selectedFYEnd),
+        previous: calculateFinancialsForPeriod(selectedFYEnd - 1)
+    };
+  }, [bills, expenses, residents, incomes, selectedFYEnd]);
+
+  // Trial Balance Data (Current Year Only usually, but let's stick to standard single col for TB or reuse Comparative logic if needed)
+  // Standard TB is usually for a period. We will use Current Year data for TB.
   const trialBalanceData = useMemo(() => {
+      const currentStats = financials.current;
       const ledgers: { name: string, debit: number, credit: number, group: string }[] = [];
 
       // Debits
-      // 1. Expenses
-      expenses.forEach(e => {
-          ledgers.push({ name: `${e.category} - ${e.vendor}`, debit: e.amount, credit: 0, group: 'Expenses' });
+      Object.entries(currentStats.expensesByCategory).forEach(([cat, amt]) => {
+          ledgers.push({ name: `${cat} Expenses`, debit: amt, credit: 0, group: 'Expenses' });
       });
-      // 2. Assets (Receivables)
-      ledgers.push({ name: 'Sundry Debtors (Members)', debit: financials.totalReceivables, credit: 0, group: 'Current Assets' });
-      // 3. Cash/Bank
-      ledgers.push({ name: 'Cash / Bank Balance', debit: financials.cashInHand, credit: 0, group: 'Current Assets' });
+      ledgers.push({ name: 'Sundry Debtors (Members)', debit: currentStats.totalReceivables, credit: 0, group: 'Current Assets' });
+      ledgers.push({ name: 'Cash / Bank Balance', debit: currentStats.cashInHand, credit: 0, group: 'Current Assets' });
 
       // Credits
-      // 1. Income (Maintenance)
-      ledgers.push({ name: 'Maintenance Income', debit: 0, credit: financials.totalBilled, group: 'Direct Income' });
-      // 2. Other Income
-      incomes.forEach(i => {
+      ledgers.push({ name: 'Maintenance Income', debit: 0, credit: currentStats.totalBilled, group: 'Direct Income' });
+      currentStats.periodIncomes.forEach(i => {
           ledgers.push({ name: `${i.category} - ${i.description}`, debit: 0, credit: i.amount, group: 'Indirect Income' });
       });
-      // 3. Capital / Opening Balance Equity (Balancing figure effectively)
-      // Since Opening Balance of residents is an asset, the corresponding credit entry is usually Capital/Reserve
-      if (financials.totalOpeningBalances > 0) {
-          ledgers.push({ name: 'Opening Reserves', debit: 0, credit: financials.totalOpeningBalances, group: 'Capital Account' });
+      if (currentStats.totalOpeningBalances > 0) {
+          ledgers.push({ name: 'Opening Reserves', debit: 0, credit: currentStats.totalOpeningBalances, group: 'Capital Account' });
       }
 
-      // Calculate totals
       const totalDebit = ledgers.reduce((sum, l) => sum + l.debit, 0);
       const totalCredit = ledgers.reduce((sum, l) => sum + l.credit, 0);
 
       return { ledgers, totalDebit, totalCredit };
-  }, [expenses, incomes, financials]);
+  }, [financials]);
 
-  // Receipts and Payments Logic
+  // Receipts and Payments (Current Year)
   const receiptsAndPaymentsData = useMemo(() => {
-    // 1. Receipts
-    // Maintenance Collections
-    const maintenanceCollections = bills
-      .filter(b => b.status === PaymentStatus.PAID)
-      .reduce((sum, b) => sum + b.totalAmount, 0);
+    // We'll focus on the Selected FY for R&P
+    const startStr = `${selectedFYEnd - 1}-04-01`;
+    const endStr = `${selectedFYEnd}-03-31`;
+    const isInPeriod = (dateStr: string) => dateStr >= startStr && dateStr <= endStr;
 
-    // Other Income Collections
+    // 1. Receipts
+    const maintenanceCollections = bills
+      .filter(b => b.status === PaymentStatus.PAID && b.paymentDetails && isInPeriod(b.paymentDetails.date))
+      .reduce((sum: number, b) => sum + b.totalAmount, 0);
+
     const otherIncomesByCategory: Record<string, number> = {};
-    incomes.forEach(i => {
+    incomes.filter(i => isInPeriod(i.date)).forEach(i => {
       otherIncomesByCategory[i.category] = (otherIncomesByCategory[i.category] || 0) + i.amount;
     });
 
     // 2. Payments
     const expensesByCategory: Record<string, number> = {};
-    expenses.forEach(e => {
+    expenses.filter(e => isInPeriod(e.date)).forEach(e => {
       expensesByCategory[e.category] = (expensesByCategory[e.category] || 0) + e.amount;
     });
 
-    // Opening Balance (Assuming 0 for start of period in this simplified view, or derived)
-    const openingBalance = 0; 
+    // Opening Balance (Cash in hand BEFORE start date)
+    const prevStats = financials.previous;
+    const openingBalance = prevStats.cashInHand; // Closing of prev year is Opening of this year
 
-    // Totals
-    const totalReceipts = openingBalance + maintenanceCollections + Object.values(otherIncomesByCategory).reduce((a, b) => a + b, 0);
-    const totalPayments = Object.values(expensesByCategory).reduce((a, b) => a + b, 0);
-    
-    // Closing Balance
+    const totalReceipts = openingBalance + maintenanceCollections + (Object.values(otherIncomesByCategory) as number[]).reduce((a, b) => a + b, 0);
+    const totalPayments = (Object.values(expensesByCategory) as number[]).reduce((a, b) => a + b, 0);
     const closingBalance = totalReceipts - totalPayments;
 
     return {
@@ -156,16 +186,15 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       totalPayments,
       closingBalance
     };
-  }, [bills, incomes, expenses]);
+  }, [bills, incomes, expenses, selectedFYEnd, financials.previous]);
 
   const downloadReport = () => {
     const element = document.getElementById('report-content');
     if (!element) return;
     
-    // element.classList.remove('shadow-xl'); // Remove shadow for print
     const opt = {
-      margin:       0.5,
-      filename:     `${activeTab}_${activeSociety.name}.pdf`,
+      margin:       0.3,
+      filename:     `${activeTab}_FY${selectedFYEnd}_${activeSociety.name}.pdf`,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
       jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -174,12 +203,32 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
     window.html2pdf().set(opt).from(element).save();
   };
 
+  const formatMoney = (amount: number) => {
+      return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h2 className="text-xl font-semibold text-slate-800">Financial Reports</h2>
-           <p className="text-sm text-slate-500 mt-1">Statement of Accounts, Balance Sheet & Trial Balance</p>
+           <p className="text-sm text-slate-500 mt-1">Comparative Statements & Balance Sheet</p>
+        </div>
+        
+        {/* Year Selector */}
+        <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+            <Calendar className="text-indigo-600" size={20} />
+            <span className="text-sm font-bold text-slate-700">Financial Year:</span>
+            <select 
+                className="bg-slate-50 border border-slate-300 rounded px-2 py-1 text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
+                value={selectedFYEnd}
+                onChange={(e) => setSelectedFYEnd(Number(e.target.value))}
+            >
+                {[0, 1, 2, 3].map(offset => {
+                    const year = new Date().getFullYear() + 1 - offset;
+                    return <option key={year} value={year}>{year - 1}-{year}</option>
+                })}
+            </select>
         </div>
       </div>
 
@@ -214,22 +263,22 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-              <p className="text-xs text-slate-500 uppercase font-bold">Total Income</p>
-              <p className="text-xl font-bold text-slate-800">₹{financials.totalIncome.toFixed(2)}</p>
+              <p className="text-xs text-slate-500 uppercase font-bold">Total Income ({selectedFYEnd-1}-{selectedFYEnd.toString().slice(-2)})</p>
+              <p className="text-xl font-bold text-slate-800">₹{formatMoney(financials.current.totalIncome)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
               <p className="text-xs text-slate-500 uppercase font-bold">Total Expense</p>
-              <p className="text-xl font-bold text-red-600">₹{financials.totalExpenses.toFixed(2)}</p>
+              <p className="text-xl font-bold text-red-600">₹{formatMoney(financials.current.totalExpenses)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
               <p className="text-xs text-slate-500 uppercase font-bold">Net Surplus</p>
-              <p className={`text-xl font-bold ${financials.netSurplus >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                ₹{financials.netSurplus.toFixed(2)}
+              <p className={`text-xl font-bold ${financials.current.netSurplus >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ₹{formatMoney(financials.current.netSurplus)}
               </p>
           </div>
            <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
               <p className="text-xs text-slate-500 uppercase font-bold">Cash in Hand</p>
-              <p className="text-xl font-bold text-indigo-600">₹{financials.cashInHand.toFixed(2)}</p>
+              <p className="text-xl font-bold text-indigo-600">₹{formatMoney(financials.current.cashInHand)}</p>
           </div>
       </div>
 
@@ -237,7 +286,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[600px]">
         <div 
           id="report-content" 
-          className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-xl text-slate-800"
+          className="bg-white w-[210mm] min-h-[297mm] p-[10mm] shadow-xl text-slate-800"
         >
           {/* Report Header */}
           <div className="text-center border-b-2 border-slate-800 pb-6 mb-8">
@@ -249,7 +298,9 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                  activeTab === 'TRIAL_BALANCE' ? 'Trial Balance Report' : 
                  'Receipts & Payments Account'}
             </h2>
-            <p className="text-sm text-slate-400 mt-2">Generated on: {new Date().toLocaleDateString()}</p>
+            <p className="text-sm text-slate-800 font-bold mt-2 uppercase">
+                For the Year Ended 31st March, {selectedFYEnd}
+            </p>
           </div>
 
           {activeTab === 'BALANCE_SHEET' && (
@@ -259,83 +310,116 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                     <h3 className="text-lg font-bold bg-slate-100 p-2 border-l-4 border-indigo-600 mb-4 flex items-center gap-2">
                     <TrendingUp size={18} /> Income & Expenditure Account
                     </h3>
-                    <div className="grid grid-cols-2 gap-8">
-                    {/* Expenditure Side */}
-                    <div>
-                        <table className="w-full text-sm">
+                    
+                    <table className="w-full text-sm border-collapse border border-slate-300">
                         <thead>
-                            <tr className="border-b border-slate-300">
-                            <th className="text-left py-2 font-semibold">Expenditure</th>
-                            <th className="text-right py-2 font-semibold">Amount (₹)</th>
+                            <tr className="bg-slate-50">
+                                <th className="border border-slate-300 p-2 text-right w-24">Prev Year<br/>({selectedFYEnd-2}-{selectedFYEnd-1})</th>
+                                <th className="border border-slate-300 p-2 text-left">Expenditure</th>
+                                <th className="border border-slate-300 p-2 text-right w-32">Current Year<br/>({selectedFYEnd-1}-{selectedFYEnd})</th>
+                                <th className="border border-slate-300 p-2 text-right w-24">Prev Year<br/>({selectedFYEnd-2}-{selectedFYEnd-1})</th>
+                                <th className="border border-slate-300 p-2 text-left">Income</th>
+                                <th className="border border-slate-300 p-2 text-right w-32">Current Year<br/>({selectedFYEnd-1}-{selectedFYEnd})</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {expenses.length > 0 ? Object.entries(expenses.reduce((acc, curr) => {
-                                acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
-                                return acc;
-                            }, {} as Record<string, number>)).map(([cat, amt], i) => (
-                                <tr key={i}>
-                                    <td className="py-1 text-slate-600">{cat}</td>
-                                    <td className="py-1 text-right">₹{Number(amt).toFixed(2)}</td>
-                                </tr>
-                            )) : (
-                                <tr><td colSpan={2} className="py-2 text-center text-slate-400 italic">No expenses recorded</td></tr>
-                            )}
-                            
-                            {/* Surplus Calculation */}
-                            {financials.netSurplus > 0 && (
-                            <tr className="bg-green-50 font-bold">
-                                <td className="py-2 pl-2 text-green-800">Excess of Income over Expenditure (Surplus)</td>
-                                <td className="py-2 pr-2 text-right text-green-800">₹{financials.netSurplus.toFixed(2)}</td>
-                            </tr>
-                            )}
-                        </tbody>
-                        <tfoot className="border-t-2 border-slate-800">
+                        <tbody className="align-top">
                             <tr>
-                            <td className="py-2 font-bold">Total</td>
-                            <td className="py-2 text-right font-bold">₹{Math.max(financials.totalIncome, financials.totalExpenses).toFixed(2)}</td>
-                            </tr>
-                        </tfoot>
-                        </table>
-                    </div>
+                                {/* --- EXPENDITURE COLUMN --- */}
+                                <td className="border-l border-slate-300 p-0" colSpan={3}>
+                                    <table className="w-full">
+                                        <tbody>
+                                            {/* Get unique categories from both years */}
+                                            {Array.from(new Set([
+                                                ...Object.keys(financials.current.expensesByCategory), 
+                                                ...Object.keys(financials.previous.expensesByCategory)
+                                            ])).map((cat, i) => (
+                                                <tr key={i} className="border-b border-slate-100">
+                                                    <td className="p-2 text-right w-24 text-slate-500">
+                                                        {formatMoney(financials.previous.expensesByCategory[cat] || 0)}
+                                                    </td>
+                                                    <td className="p-2 text-slate-700">{cat}</td>
+                                                    <td className="p-2 text-right w-32 font-medium">
+                                                        {formatMoney(financials.current.expensesByCategory[cat] || 0)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            
+                                            {/* Surplus Row */}
+                                            <tr className="bg-green-50 font-bold border-t border-slate-300">
+                                                <td className="p-2 text-right w-24 text-green-700">
+                                                    {financials.previous.netSurplus > 0 ? formatMoney(financials.previous.netSurplus) : ''}
+                                                </td>
+                                                <td className="p-2 text-green-900">Excess of Income over Expenditure (Surplus)</td>
+                                                <td className="p-2 text-right w-32 text-green-900">
+                                                    {financials.current.netSurplus > 0 ? formatMoney(financials.current.netSurplus) : ''}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
 
-                    {/* Income Side */}
-                    <div>
-                        <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-300">
-                            <th className="text-left py-2 font-semibold">Income</th>
-                            <th className="text-right py-2 font-semibold">Amount (₹)</th>
+                                {/* --- INCOME COLUMN --- */}
+                                <td className="border-l border-r border-slate-300 p-0" colSpan={3}>
+                                    <table className="w-full">
+                                        <tbody>
+                                            <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right w-24 text-slate-500">{formatMoney(financials.previous.totalBilled)}</td>
+                                                <td className="p-2 text-slate-700">Maintenance Charges</td>
+                                                <td className="p-2 text-right w-32 font-medium">{formatMoney(financials.current.totalBilled)}</td>
+                                            </tr>
+                                            {/* We group other incomes by category for cleaner comparative view */}
+                                            {Array.from(new Set([
+                                                ...financials.current.periodIncomes.map(i => i.category),
+                                                ...financials.previous.periodIncomes.map(i => i.category)
+                                            ])).map((cat, i) => {
+                                                const currAmt = financials.current.periodIncomes.filter(inc => inc.category === cat).reduce((s, x) => s + x.amount, 0);
+                                                const prevAmt = financials.previous.periodIncomes.filter(inc => inc.category === cat).reduce((s, x) => s + x.amount, 0);
+                                                return (
+                                                    <tr key={i} className="border-b border-slate-100">
+                                                        <td className="p-2 text-right w-24 text-slate-500">{formatMoney(prevAmt)}</td>
+                                                        <td className="p-2 text-slate-700">{cat}</td>
+                                                        <td className="p-2 text-right w-32 font-medium">{formatMoney(currAmt)}</td>
+                                                    </tr>
+                                                );
+                                            })}
+
+                                            {/* Deficit Row */}
+                                            {(financials.current.netSurplus < 0 || financials.previous.netSurplus < 0) && (
+                                                <tr className="bg-red-50 font-bold border-t border-slate-300">
+                                                     <td className="p-2 text-right w-24 text-red-700">
+                                                        {financials.previous.netSurplus < 0 ? formatMoney(Math.abs(financials.previous.netSurplus)) : ''}
+                                                    </td>
+                                                    <td className="p-2 text-red-900">Excess of Expenditure over Income (Deficit)</td>
+                                                    <td className="p-2 text-right w-32 text-red-900">
+                                                        {financials.current.netSurplus < 0 ? formatMoney(Math.abs(financials.current.netSurplus)) : ''}
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            <tr>
-                                <td className="py-2 text-slate-600">Maintenance Charges</td>
-                                <td className="py-2 text-right">₹{financials.totalBilled.toFixed(2)}</td>
-                            </tr>
-                            {incomes.map((inc, i) => (
-                                <tr key={i}>
-                                    <td className="py-2 text-slate-600">{inc.category}</td>
-                                    <td className="py-2 text-right">₹{inc.amount.toFixed(2)}</td>
-                                </tr>
-                            ))}
-                            {/* Deficit Calculation */}
-                            {financials.netSurplus < 0 && (
-                            <tr className="bg-red-50 font-bold">
-                                <td className="py-2 pl-2 text-red-800">Excess of Expenditure over Income (Deficit)</td>
-                                <td className="py-2 pr-2 text-right text-red-800">₹{Math.abs(financials.netSurplus).toFixed(2)}</td>
-                            </tr>
-                            )}
                         </tbody>
-                        <tfoot className="border-t-2 border-slate-800">
+                        <tfoot className="bg-slate-800 text-white font-bold">
                             <tr>
-                            <td className="py-2 font-bold">Total</td>
-                            <td className="py-2 text-right font-bold">₹{Math.max(financials.totalIncome, financials.totalExpenses).toFixed(2)}</td>
+                                <td className="p-2 text-right w-24 border-r border-slate-600">
+                                    {formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}
+                                </td>
+                                <td className="p-2 text-center">TOTAL</td>
+                                <td className="p-2 text-right w-32 border-r border-slate-600">
+                                    {formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}
+                                </td>
+                                
+                                <td className="p-2 text-right w-24 border-r border-slate-600">
+                                    {formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}
+                                </td>
+                                <td className="p-2 text-center">TOTAL</td>
+                                <td className="p-2 text-right w-32">
+                                    {formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}
+                                </td>
                             </tr>
                         </tfoot>
-                        </table>
-                    </div>
-                    </div>
+                    </table>
                 </div>
 
                 {/* Balance Sheet */}
@@ -343,86 +427,89 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                     <h3 className="text-lg font-bold bg-slate-100 p-2 border-l-4 border-indigo-600 mb-4 flex items-center gap-2">
                     <Coins size={18} /> Balance Sheet
                     </h3>
-                    <div className="grid grid-cols-2 gap-8">
-                    {/* Liabilities */}
-                    <div>
-                        <table className="w-full text-sm">
+                    
+                     <table className="w-full text-sm border-collapse border border-slate-300">
                         <thead>
-                            <tr className="border-b border-slate-300">
-                            <th className="text-left py-2 font-semibold">Liabilities & Equity</th>
-                            <th className="text-right py-2 font-semibold">Amount (₹)</th>
+                            <tr className="bg-slate-50">
+                                <th className="border border-slate-300 p-2 text-right w-24">Prev Year</th>
+                                <th className="border border-slate-300 p-2 text-left">Liabilities</th>
+                                <th className="border border-slate-300 p-2 text-right w-32">Current Year</th>
+                                <th className="border border-slate-300 p-2 text-right w-24">Prev Year</th>
+                                <th className="border border-slate-300 p-2 text-left">Assets</th>
+                                <th className="border border-slate-300 p-2 text-right w-32">Current Year</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="align-top">
                             <tr>
-                                <td className="py-2 font-bold text-slate-700">Reserves & Surplus</td>
-                                <td className="py-2 text-right"></td>
-                            </tr>
-                            <tr>
-                                <td className="py-1 pl-4 text-slate-600">Opening Balance</td>
-                                <td className="py-1 text-right">₹{financials.totalOpeningBalances.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                                <td className="py-1 pl-4 text-slate-600">Add: Current Surplus</td>
-                                <td className="py-1 text-right">₹{financials.netSurplus.toFixed(2)}</td>
-                            </tr>
-                            <tr className="border-t border-slate-200">
-                                <td className="py-2 font-semibold text-indigo-700">Total Reserves</td>
-                                <td className="py-2 text-right font-semibold text-indigo-700">₹{(financials.totalOpeningBalances + financials.netSurplus).toFixed(2)}</td>
+                                {/* --- LIABILITIES --- */}
+                                <td className="border-l border-slate-300 p-0" colSpan={3}>
+                                    <table className="w-full">
+                                        <tbody>
+                                            <tr className="border-b border-slate-100 font-bold bg-slate-50">
+                                                <td colSpan={3} className="p-2">Reserves & Surplus</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right w-24 text-slate-500">{formatMoney(financials.previous.totalOpeningBalances)}</td>
+                                                <td className="p-2 pl-4 text-slate-700">Opening Balance</td>
+                                                <td className="p-2 text-right w-32 font-medium">{formatMoney(financials.current.totalOpeningBalances)}</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right w-24 text-slate-500">{formatMoney(financials.previous.netSurplus)}</td>
+                                                <td className="p-2 pl-4 text-slate-700">Add: Current Surplus</td>
+                                                <td className="p-2 text-right w-32 font-medium">{formatMoney(financials.current.netSurplus)}</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-100 font-semibold bg-indigo-50">
+                                                <td className="p-2 text-right w-24 text-slate-600">{formatMoney(financials.previous.totalFunds)}</td>
+                                                <td className="p-2 text-indigo-800">Total Reserves</td>
+                                                <td className="p-2 text-right w-32 text-indigo-800">{formatMoney(financials.current.totalFunds)}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+
+                                {/* --- ASSETS --- */}
+                                <td className="border-l border-r border-slate-300 p-0" colSpan={3}>
+                                    <table className="w-full">
+                                        <tbody>
+                                            <tr className="border-b border-slate-100 font-bold bg-slate-50">
+                                                <td colSpan={3} className="p-2">Fixed Assets</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right w-24 text-slate-500">{formatMoney(financials.previous.fixedAssets)}</td>
+                                                <td className="p-2 pl-4 text-slate-700">Property, Plant & Equipment</td>
+                                                <td className="p-2 text-right w-32 font-medium">{formatMoney(financials.current.fixedAssets)}</td>
+                                            </tr>
+
+                                            <tr className="border-b border-slate-100 font-bold bg-slate-50">
+                                                <td colSpan={3} className="p-2">Current Assets</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right w-24 text-slate-500">{formatMoney(financials.previous.cashInHand)}</td>
+                                                <td className="p-2 pl-4 text-slate-700">Cash & Bank Balance</td>
+                                                <td className="p-2 text-right w-32 font-medium">{formatMoney(financials.current.cashInHand)}</td>
+                                            </tr>
+                                            <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right w-24 text-slate-500">{formatMoney(financials.previous.totalReceivables)}</td>
+                                                <td className="p-2 pl-4 text-slate-700">Sundry Debtors (Receivables)</td>
+                                                <td className="p-2 text-right w-32 font-medium">{formatMoney(financials.current.totalReceivables)}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
                             </tr>
                         </tbody>
-                        <tfoot className="border-t-2 border-slate-800">
+                        <tfoot className="bg-slate-800 text-white font-bold">
                             <tr>
-                            <td className="py-2 font-bold">Total</td>
-                            <td className="py-2 text-right font-bold">₹{financials.totalFunds.toFixed(2)}</td>
+                                <td className="p-2 text-right w-24 border-r border-slate-600">{formatMoney(financials.previous.totalFunds)}</td>
+                                <td className="p-2 text-center">TOTAL</td>
+                                <td className="p-2 text-right w-32 border-r border-slate-600">{formatMoney(financials.current.totalFunds)}</td>
+                                
+                                <td className="p-2 text-right w-24 border-r border-slate-600">{formatMoney(financials.previous.totalAssets)}</td>
+                                <td className="p-2 text-center">TOTAL</td>
+                                <td className="p-2 text-right w-32">{formatMoney(financials.current.totalAssets)}</td>
                             </tr>
                         </tfoot>
-                        </table>
-                    </div>
-
-                    {/* Assets */}
-                    <div>
-                        <table className="w-full text-sm">
-                        <thead>
-                            <tr className="border-b border-slate-300">
-                            <th className="text-left py-2 font-semibold">Assets</th>
-                            <th className="text-right py-2 font-semibold">Amount (₹)</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {/* FIXED ASSETS */}
-                            <tr>
-                                <td className="py-2 font-bold text-slate-700">Fixed Assets</td>
-                                <td className="py-2 text-right"></td>
-                            </tr>
-                            <tr>
-                                <td className="py-1 pl-4 text-slate-600">Property, Plant & Equipment</td>
-                                <td className="py-1 text-right">₹{financials.fixedAssets.toFixed(2)}</td>
-                            </tr>
-
-                            {/* CURRENT ASSETS */}
-                            <tr>
-                                <td className="py-2 font-bold text-slate-700">Current Assets</td>
-                                <td className="py-2 text-right"></td>
-                            </tr>
-                            <tr>
-                                <td className="py-1 pl-4 text-slate-600">Cash & Bank Balance</td>
-                                <td className="py-1 text-right">₹{financials.cashInHand.toFixed(2)}</td>
-                            </tr>
-                            <tr>
-                                <td className="py-1 pl-4 text-slate-600">Sundry Debtors (Receivables)</td>
-                                <td className="py-1 text-right">₹{financials.totalReceivables.toFixed(2)}</td>
-                            </tr>
-                        </tbody>
-                        <tfoot className="border-t-2 border-slate-800">
-                            <tr>
-                            <td className="py-2 font-bold">Total</td>
-                            <td className="py-2 text-right font-bold">₹{financials.totalAssets.toFixed(2)}</td>
-                            </tr>
-                        </tfoot>
-                        </table>
-                    </div>
-                    </div>
+                    </table>
                 </div>
               </>
           )}
@@ -431,7 +518,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
              /* TRIAL BALANCE VIEW */
              <div className="break-inside-avoid">
                  <h3 className="text-lg font-bold bg-slate-100 p-2 border-l-4 border-indigo-600 mb-4 flex items-center gap-2">
-                    <Scale size={18} /> Trial Balance
+                    <Scale size={18} /> Trial Balance (FY {selectedFYEnd-1}-{selectedFYEnd})
                 </h3>
                  <table className="w-full text-sm">
                      <thead>
@@ -447,16 +534,16 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                              <tr key={idx} className="hover:bg-slate-50">
                                  <td className="py-2 px-2 text-slate-700">{row.name}</td>
                                  <td className="py-2 px-2 text-slate-500 text-xs uppercase">{row.group}</td>
-                                 <td className="py-2 px-2 text-right font-mono">{row.debit > 0 ? row.debit.toFixed(2) : '-'}</td>
-                                 <td className="py-2 px-2 text-right font-mono">{row.credit > 0 ? row.credit.toFixed(2) : '-'}</td>
+                                 <td className="py-2 px-2 text-right font-mono">{row.debit > 0 ? formatMoney(row.debit) : '-'}</td>
+                                 <td className="py-2 px-2 text-right font-mono">{row.credit > 0 ? formatMoney(row.credit) : '-'}</td>
                              </tr>
                          ))}
                      </tbody>
                      <tfoot className="bg-slate-800 text-white border-t-2 border-slate-900">
                          <tr>
                              <td colSpan={2} className="py-3 px-2 font-bold text-right uppercase">Grand Total</td>
-                             <td className="py-3 px-2 text-right font-bold font-mono">₹{trialBalanceData.totalDebit.toFixed(2)}</td>
-                             <td className="py-3 px-2 text-right font-bold font-mono">₹{trialBalanceData.totalCredit.toFixed(2)}</td>
+                             <td className="py-3 px-2 text-right font-bold font-mono">₹{formatMoney(trialBalanceData.totalDebit)}</td>
+                             <td className="py-3 px-2 text-right font-bold font-mono">₹{formatMoney(trialBalanceData.totalCredit)}</td>
                          </tr>
                      </tfoot>
                  </table>
@@ -467,7 +554,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
             /* RECEIPTS AND PAYMENTS VIEW */
             <div className="break-inside-avoid">
                <h3 className="text-lg font-bold bg-slate-100 p-2 border-l-4 border-indigo-600 mb-4 flex items-center gap-2">
-                 <ArrowRightLeft size={18} /> Receipts & Payments Account
+                 <ArrowRightLeft size={18} /> Receipts & Payments (FY {selectedFYEnd-1}-{selectedFYEnd})
                </h3>
                <div className="grid grid-cols-2 gap-8">
                  {/* Receipts Side */}
@@ -485,13 +572,13 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                            <td className="py-2 text-right"></td>
                         </tr>
                         <tr>
-                           <td className="py-1 pl-4 text-slate-600">Cash & Bank</td>
-                           <td className="py-1 text-right">₹{receiptsAndPaymentsData.openingBalance.toFixed(2)}</td>
+                           <td className="py-1 pl-4 text-slate-600">Cash & Bank (from Prev Year)</td>
+                           <td className="py-1 text-right">₹{formatMoney(receiptsAndPaymentsData.openingBalance)}</td>
                         </tr>
                         
                         <tr>
                            <td className="py-2 text-slate-700 font-semibold mt-2">To Maintenance Collections</td>
-                           <td className="py-2 text-right">₹{receiptsAndPaymentsData.maintenanceCollections.toFixed(2)}</td>
+                           <td className="py-2 text-right">₹{formatMoney(receiptsAndPaymentsData.maintenanceCollections)}</td>
                         </tr>
 
                         <tr>
@@ -501,14 +588,14 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                         {Object.entries(receiptsAndPaymentsData.otherIncomesByCategory).map(([cat, amt], idx) => (
                            <tr key={idx}>
                              <td className="py-1 pl-4 text-slate-600">{cat}</td>
-                             <td className="py-1 text-right">₹{Number(amt).toFixed(2)}</td>
+                             <td className="py-1 text-right">₹{formatMoney(Number(amt))}</td>
                            </tr>
                         ))}
                      </tbody>
                      <tfoot className="border-t-2 border-slate-800">
                         <tr>
                           <td className="py-2 font-bold">Total</td>
-                          <td className="py-2 text-right font-bold">₹{receiptsAndPaymentsData.totalReceipts.toFixed(2)}</td>
+                          <td className="py-2 text-right font-bold">₹{formatMoney(receiptsAndPaymentsData.totalReceipts)}</td>
                         </tr>
                      </tfoot>
                    </table>
@@ -531,7 +618,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                         {Object.entries(receiptsAndPaymentsData.expensesByCategory).map(([cat, amt], idx) => (
                            <tr key={idx}>
                              <td className="py-1 pl-4 text-slate-600">{cat}</td>
-                             <td className="py-1 text-right">₹{Number(amt).toFixed(2)}</td>
+                             <td className="py-1 text-right">₹{formatMoney(Number(amt))}</td>
                            </tr>
                         ))}
                         {Object.keys(receiptsAndPaymentsData.expensesByCategory).length === 0 && (
@@ -544,14 +631,13 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                         </tr>
                         <tr>
                            <td className="py-1 pl-4 text-slate-600">Cash & Bank</td>
-                           <td className="py-1 text-right">₹{receiptsAndPaymentsData.closingBalance.toFixed(2)}</td>
+                           <td className="py-1 text-right">₹{formatMoney(receiptsAndPaymentsData.closingBalance)}</td>
                         </tr>
                      </tbody>
                      <tfoot className="border-t-2 border-slate-800">
                         <tr>
                           <td className="py-2 font-bold">Total</td>
-                          <td className="py-2 text-right font-bold">₹{receiptsAndPaymentsData.totalReceipts.toFixed(2)}</td> 
-                          {/* Note: In R&P, Total Receipts matches Total Payments side (Payments + Closing Bal) */}
+                          <td className="py-2 text-right font-bold">₹{formatMoney(receiptsAndPaymentsData.totalReceipts)}</td> 
                         </tr>
                      </tfoot>
                    </table>
