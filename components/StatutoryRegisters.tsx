@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Resident, Society, Bill, Expense, Income } from '../types';
-import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark, CalendarClock, Building, FolderOpen, Printer, Copy, Check } from 'lucide-react';
+import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark, CalendarClock, Building, FolderOpen, Printer, Copy, Check, Briefcase, Shield, Archive } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface StatutoryRegistersProps {
@@ -12,7 +12,7 @@ interface StatutoryRegistersProps {
   incomes?: Income[];
 }
 
-type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX' | 'DUE_DATES' | 'CONVEYANCE_DEED' | 'SOCIETY_FORMS';
+type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX' | 'DUE_DATES' | 'CONVEYANCE_DEED' | 'SOCIETY_FORMS' | 'FIXED_DEPOSIT' | 'IMPORTANT_DOCUMENTS' | 'INSURANCE';
 
 declare global {
   interface Window {
@@ -197,6 +197,26 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
     "Development Agreement Copy",
     "Architect Certificate regarding area",
     "Search Report of last 30 years"
+  ];
+
+  const FIXED_DEPOSITS = [
+      { id: 1, bank: 'District Co-op Bank', fdrNo: 'FDR/2023/001', amount: 500000, rate: 7.5, date: '2023-01-15', maturity: '2024-01-15', status: 'Active' },
+      { id: 2, bank: 'State Bank of India', fdrNo: 'SBI/FD/8899', amount: 200000, rate: 6.8, date: '2023-06-01', maturity: '2024-06-01', status: 'Active' },
+      { id: 3, bank: 'HDFC Bank', fdrNo: 'HDFC/RN/556', amount: 150000, rate: 7.0, date: '2022-05-10', maturity: '2023-05-10', status: 'Matured' },
+  ];
+
+  const IMPORTANT_DOCUMENTS_LIST = [
+      { id: 1, name: 'Registration Certificate', refNo: 'REG/2005/123', location: 'File A-1 (Locker)', date: '2005-06-15' },
+      { id: 2, name: 'Original Plot Conveyance', refNo: 'DOC-998', location: 'Bank Locker', date: '2010-02-20' },
+      { id: 3, name: 'BMC Approved Plans', refNo: 'PLAN-77', location: 'File B-3 (Office)', date: '2004-11-10' },
+      { id: 4, name: 'Occupation Certificate (OC)', refNo: 'OC-221', location: 'File A-1 (Locker)', date: '2006-01-05' },
+      { id: 5, name: 'Lift License', refNo: 'LIFT/23', location: 'File C-2 (Office)', date: '2023-04-01' },
+  ];
+
+  const INSURANCE_POLICIES = [
+      { id: 1, type: 'Fire & Perils', provider: 'New India Assurance', policyNo: 'NIA/FIRE/23-24/001', sumInsured: 50000000, premium: 12500, expiry: '2024-03-31' },
+      { id: 2, type: 'Public Liability', provider: 'ICICI Lombard', policyNo: 'IPL/PL/9988', sumInsured: 1000000, premium: 3500, expiry: '2024-05-15' },
+      { id: 3, type: 'Director & Officer', provider: 'HDFC Ergo', policyNo: 'HE/DO/7766', sumInsured: 500000, premium: 5000, expiry: '2024-08-01' },
   ];
 
   const SOCIETY_FORMS_DATA = [
@@ -385,7 +405,7 @@ Date: _____________`
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' || activeTab === 'SOCIETY_FORMS') ? 'portrait' : 'landscape' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' || activeTab === 'SOCIETY_FORMS' || activeTab === 'IMPORTANT_DOCUMENTS' || activeTab === 'FIXED_DEPOSIT' || activeTab === 'INSURANCE') ? 'portrait' : 'landscape' }
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
@@ -446,6 +466,24 @@ Date: _____________`
               <FolderOpen size={16} /> Society Forms
           </button>
           <button 
+            onClick={() => setActiveTab('FIXED_DEPOSIT')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'FIXED_DEPOSIT' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <Briefcase size={16} /> Fixed Deposit
+          </button>
+          <button 
+            onClick={() => setActiveTab('IMPORTANT_DOCUMENTS')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'IMPORTANT_DOCUMENTS' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <Archive size={16} /> Important Docs
+          </button>
+          <button 
+            onClick={() => setActiveTab('INSURANCE')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'INSURANCE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <Shield size={16} /> Insurance
+          </button>
+          <button 
             onClick={() => setActiveTab('CONVEYANCE_DEED')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CONVEYANCE_DEED' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
@@ -489,7 +527,7 @@ Date: _____________`
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="register-container" 
-            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' || activeTab === 'SOCIETY_FORMS' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
+            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' || activeTab === 'SOCIETY_FORMS' || activeTab === 'FIXED_DEPOSIT' || activeTab === 'IMPORTANT_DOCUMENTS' || activeTab === 'INSURANCE' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -507,6 +545,9 @@ Date: _____________`
                      activeTab === 'DUE_DATES' ? 'Statutory Compliance Calendar' :
                      activeTab === 'CONVEYANCE_DEED' ? 'Conveyance Deed Status Tracker' :
                      activeTab === 'SOCIETY_FORMS' ? 'Standard Society Statutory Forms' :
+                     activeTab === 'FIXED_DEPOSIT' ? 'Fixed Deposit Register' :
+                     activeTab === 'IMPORTANT_DOCUMENTS' ? 'Important Documents Register' :
+                     activeTab === 'INSURANCE' ? 'Insurance Policy Register' :
                      'Form "O" - Rectification Report'}
                 </h2>
              </div>
@@ -629,6 +670,105 @@ Date: _____________`
                         ))}
                     </tbody>
                 </table>
+             )}
+
+             {/* FIXED DEPOSIT REGISTER */}
+             {activeTab === 'FIXED_DEPOSIT' && (
+                 <table className="w-full text-sm border-collapse border border-slate-300">
+                     <thead className="bg-slate-100 text-xs">
+                         <tr>
+                             <th className="border border-slate-300 p-2">Sr No</th>
+                             <th className="border border-slate-300 p-2 text-left">Bank / Institution</th>
+                             <th className="border border-slate-300 p-2 text-left">FDR Receipt No</th>
+                             <th className="border border-slate-300 p-2 text-center">Date of Deposit</th>
+                             <th className="border border-slate-300 p-2 text-center">Maturity Date</th>
+                             <th className="border border-slate-300 p-2 text-center">Int. Rate (%)</th>
+                             <th className="border border-slate-300 p-2 text-right">Principal Amount (₹)</th>
+                             <th className="border border-slate-300 p-2 text-center">Status</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                         {FIXED_DEPOSITS.map((fd, idx) => (
+                             <tr key={fd.id}>
+                                 <td className="border border-slate-300 p-2 text-center">{idx + 1}</td>
+                                 <td className="border border-slate-300 p-2 font-medium">{fd.bank}</td>
+                                 <td className="border border-slate-300 p-2 font-mono text-xs">{fd.fdrNo}</td>
+                                 <td className="border border-slate-300 p-2 text-center">{fd.date}</td>
+                                 <td className="border border-slate-300 p-2 text-center">{fd.maturity}</td>
+                                 <td className="border border-slate-300 p-2 text-center">{fd.rate}%</td>
+                                 <td className="border border-slate-300 p-2 text-right font-bold">{fd.amount.toLocaleString()}</td>
+                                 <td className={`border border-slate-300 p-2 text-center text-xs font-bold ${fd.status === 'Active' ? 'text-green-600' : 'text-slate-400'}`}>
+                                     {fd.status.toUpperCase()}
+                                 </td>
+                             </tr>
+                         ))}
+                         <tr className="bg-slate-50 font-bold">
+                             <td colSpan={6} className="border border-slate-300 p-2 text-right">Total Deposits</td>
+                             <td className="border border-slate-300 p-2 text-right">
+                                 {FIXED_DEPOSITS.filter(f => f.status === 'Active').reduce((s, f) => s + f.amount, 0).toLocaleString()}
+                             </td>
+                             <td className="border border-slate-300 p-2"></td>
+                         </tr>
+                     </tbody>
+                 </table>
+             )}
+
+             {/* IMPORTANT DOCUMENTS REGISTER */}
+             {activeTab === 'IMPORTANT_DOCUMENTS' && (
+                 <table className="w-full text-sm border-collapse border border-slate-300">
+                     <thead className="bg-slate-100 text-xs">
+                         <tr>
+                             <th className="border border-slate-300 p-2">Sr No</th>
+                             <th className="border border-slate-300 p-2 text-left">Document Name / Title</th>
+                             <th className="border border-slate-300 p-2 text-left">Reference No / ID</th>
+                             <th className="border border-slate-300 p-2 text-center">Date of Document</th>
+                             <th className="border border-slate-300 p-2 text-left">Physical Location</th>
+                             <th className="border border-slate-300 p-2 text-center">Check</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                         {IMPORTANT_DOCUMENTS_LIST.map((doc, idx) => (
+                             <tr key={doc.id}>
+                                 <td className="border border-slate-300 p-2 text-center">{idx + 1}</td>
+                                 <td className="border border-slate-300 p-2 font-medium">{doc.name}</td>
+                                 <td className="border border-slate-300 p-2 font-mono text-xs">{doc.refNo}</td>
+                                 <td className="border border-slate-300 p-2 text-center">{doc.date}</td>
+                                 <td className="border border-slate-300 p-2 text-indigo-700 bg-indigo-50/30">{doc.location}</td>
+                                 <td className="border border-slate-300 p-2 text-center text-green-600">Available</td>
+                             </tr>
+                         ))}
+                     </tbody>
+                 </table>
+             )}
+
+             {/* INSURANCE REGISTER */}
+             {activeTab === 'INSURANCE' && (
+                 <table className="w-full text-sm border-collapse border border-slate-300">
+                     <thead className="bg-slate-100 text-xs">
+                         <tr>
+                             <th className="border border-slate-300 p-2">Sr No</th>
+                             <th className="border border-slate-300 p-2 text-left">Insurance Company</th>
+                             <th className="border border-slate-300 p-2 text-left">Type of Policy</th>
+                             <th className="border border-slate-300 p-2 text-left">Policy No</th>
+                             <th className="border border-slate-300 p-2 text-right">Sum Insured (₹)</th>
+                             <th className="border border-slate-300 p-2 text-right">Premium Paid (₹)</th>
+                             <th className="border border-slate-300 p-2 text-center">Expiry Date</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                         {INSURANCE_POLICIES.map((pol, idx) => (
+                             <tr key={pol.id}>
+                                 <td className="border border-slate-300 p-2 text-center">{idx + 1}</td>
+                                 <td className="border border-slate-300 p-2">{pol.provider}</td>
+                                 <td className="border border-slate-300 p-2 font-medium">{pol.type}</td>
+                                 <td className="border border-slate-300 p-2 font-mono text-xs">{pol.policyNo}</td>
+                                 <td className="border border-slate-300 p-2 text-right">{pol.sumInsured.toLocaleString()}</td>
+                                 <td className="border border-slate-300 p-2 text-right">{pol.premium.toLocaleString()}</td>
+                                 <td className="border border-slate-300 p-2 text-center text-red-600 font-bold">{pol.expiry}</td>
+                             </tr>
+                         ))}
+                     </tbody>
+                 </table>
              )}
 
              {/* RULES AND REGULATIONS */}
