@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
@@ -52,72 +53,72 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 
-  const btnClass = "p-2 hover:bg-slate-100 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px]";
-  const iconSize = 20;
-  const labelClass = "text-[10px] font-medium uppercase tracking-wide";
+  const btnClass = "p-2 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px] group";
+  const iconSize = 24; 
+  const labelClass = "text-[10px] font-medium uppercase tracking-wide group-hover:text-indigo-600 text-slate-500";
 
   return (
     <div className={`bg-white border-b border-slate-200 p-2 mb-6 flex flex-wrap items-center gap-1 shadow-sm rounded-lg ${className} relative`}>
       <button onClick={onSave} className={btnClass} title="Save / Add New">
-        <Save size={iconSize} />
+        <Save size={iconSize} className="text-green-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Save</span>
       </button>
       
       <button onClick={onModify} className={btnClass} title="Modify / Edit">
-        <Edit3 size={iconSize} />
+        <Edit3 size={iconSize} className="text-blue-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Modify</span>
       </button>
       
       <button onClick={onSearch} className={btnClass} title="Search">
-        <Search size={iconSize} />
+        <Search size={iconSize} className="text-purple-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Search</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
       <button onClick={() => setShowCalculator(!showCalculator)} className={btnClass} title="Calculator">
-        <Calculator size={iconSize} />
+        <Calculator size={iconSize} className="text-orange-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Calc</span>
       </button>
       
       <button onClick={() => setShowCalendar(!showCalendar)} className={btnClass} title="Calendar">
-        <Calendar size={iconSize} />
+        <Calendar size={iconSize} className="text-rose-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Calendar</span>
       </button>
 
       <button onClick={() => alert("No reminders set")} className={btnClass} title="Reminders">
-        <Bell size={iconSize} />
+        <Bell size={iconSize} className="text-amber-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Reminder</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
       <button onClick={onPrint || (() => window.print())} className={btnClass} title="Print">
-        <Printer size={iconSize} />
+        <Printer size={iconSize} className="text-slate-700 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Print</span>
       </button>
 
       <button onClick={() => alert("Standard Description Helper")} className={btnClass} title="Standard Description">
-        <FileText size={iconSize} />
+        <FileText size={iconSize} className="text-teal-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Std Desc</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
       <button onClick={onPrev} className={btnClass} title="Previous Record">
-        <ChevronLeft size={iconSize} />
+        <ChevronLeft size={iconSize} className="text-indigo-400 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Prev</span>
       </button>
 
       <button onClick={onNext} className={btnClass} title="Next Record">
-        <ChevronRight size={iconSize} />
+        <ChevronRight size={iconSize} className="text-indigo-400 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Next</span>
       </button>
 
       <div className="flex-1"></div>
 
       <button onClick={() => alert("Help Documentation")} className={`${btnClass} ml-auto`} title="Help">
-        <HelpCircle size={iconSize} />
+        <HelpCircle size={iconSize} className="text-cyan-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Help</span>
       </button>
 
