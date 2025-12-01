@@ -196,7 +196,15 @@ const App: React.FC = () => {
             />
         );
       case 'EXPENSES':
-        return <Expenses expenses={activeExpenses} societyId={activeSocietyId} onAddExpense={handleAddExpense} />;
+        return (
+            <Expenses 
+                expenses={activeExpenses} 
+                societyId={activeSocietyId} 
+                onAddExpense={handleAddExpense} 
+                residents={activeResidents}
+                bills={activeBills}
+            />
+        );
       case 'VOUCHERS':
         return (
             <PaymentVouchers 
@@ -269,6 +277,7 @@ const App: React.FC = () => {
                currentView === 'RESIDENTS' ? 'Members' :
                currentView === 'RECEIPTS' ? 'Members Receipts' :
                currentView === 'INCOME' ? 'Receipt Voucher' :
+               currentView === 'EXPENSES' ? 'Ledger (Personal & General)' :
                currentView === 'VOUCHERS' ? 'Payment Vouchers' :
                currentView === 'TEMPLATES' ? 'Templates' :
                currentView === 'STATUTORY_REGISTERS' ? 'Statutory Registers & Audit' :

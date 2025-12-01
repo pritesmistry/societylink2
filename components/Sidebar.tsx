@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ViewState } from '../types';
-import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket, FileType } from 'lucide-react';
+import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket, FileType, Book } from 'lucide-react';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -17,7 +17,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { view: 'BILLING', label: 'Billing', icon: Receipt },
     { view: 'RECEIPTS', label: 'Members Receipts', icon: ScrollText },
     { view: 'INCOME', label: 'Receipt Voucher', icon: TrendingUp },
-    { view: 'EXPENSES', label: 'Expenses', icon: CreditCard },
+    { view: 'EXPENSES', label: 'Ledger', icon: Book },
     { view: 'VOUCHERS', label: 'Payment Vouchers', icon: Ticket },
     { view: 'STATEMENTS', label: 'Statements', icon: ClipboardList },
     { view: 'BANK_RECONCILIATION', label: 'Bank Reconciliation', icon: Landmark },
