@@ -4,7 +4,7 @@ import {
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
   Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange,
   Copy, Check, MessageCircle, FileSpreadsheet, File, FileEdit,
-  Trash2, Plus, Share2, DownloadCloud, Keyboard
+  Trash2, Plus, Share2, DownloadCloud, Keyboard, Scale
 } from 'lucide-react';
 
 interface StandardToolbarProps {
@@ -55,6 +55,50 @@ const STANDARD_DESCRIPTIONS = {
     ]
 };
 
+const IMPORTANT_BYE_LAWS = [
+    {
+        category: "I. Membership & Charges",
+        rules: [
+            { title: "Service Charges", content: "Service charges shall be shared equally by all members, irrespective of the size of the flat." },
+            { title: "Sinking Fund", content: "Contribution to the Sinking Fund shall be at the rate decided by the General Body, subject to a minimum of 0.25% per annum of the construction cost of each flat." },
+            { title: "Non-Occupancy Charges", content: "Non-occupancy charges shall not exceed 10% of the service charges (excluding municipal taxes)." },
+            { title: "Interest on Arrears", content: "Simple interest not exceeding 21% per annum may be levied on outstanding dues." }
+        ]
+    },
+    {
+        category: "II. Parking Rules",
+        rules: [
+            { title: "Allotment", content: "Parking spaces may be allotted by the committee on a first-come-first-served basis or by rotation if space is scarce." },
+            { title: "Tenants", content: "If a member has rented out their flat, the tenant has the right to use the parking space allotted to that member." },
+            { title: "Stickers", content: "All vehicles parked inside society premises must display a valid society sticker." }
+        ]
+    },
+    {
+        category: "III. Repairs & Renovations",
+        rules: [
+            { title: "Permission", content: "Members must obtain prior written permission from the Committee for any internal structural changes." },
+            { title: "Timings", content: "Renovation work causing noise is permitted only between 9:00 AM and 6:00 PM. No work is allowed on Sundays and Public Holidays." },
+            { title: "Debris", content: "It is the responsibility of the member to dispose of renovation debris outside the society premises at their own cost." }
+        ]
+    },
+    {
+        category: "IV. Sub-letting / Tenancy",
+        rules: [
+            { title: "Intimation", content: "A member must intimate the society 8 days before sub-letting the flat and submit a copy of the Leave and License agreement." },
+            { title: "Police Verification", content: "Police Verification of the tenant is mandatory before they move in." },
+            { title: "No NOC Fee", content: "The Society cannot charge any donation or heavy fee for issuing an NOC for sub-letting." }
+        ]
+    },
+    {
+        category: "V. General Body Meetings",
+        rules: [
+            { title: "AGM Timing", content: "The Annual General Meeting (AGM) must be held on or before 30th September each year." },
+            { title: "Quorum", content: "The quorum for the General Meeting shall be 2/3rds of the total members or 20, whichever is less." },
+            { title: "Voting", content: "Every member has one vote. In case of joint ownership, the person whose name stands first in the share certificate has the right to vote." }
+        ]
+    }
+];
+
 const StandardToolbar: React.FC<StandardToolbarProps> = ({ 
   onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className 
 }) => {
@@ -66,10 +110,12 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   const [showReminders, setShowReminders] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [showByeLaws, setShowByeLaws] = useState(false);
   
   // Feature States
   const [calcInput, setCalcInput] = useState('');
   const [copiedDescIndex, setCopiedDescIndex] = useState<string | null>(null);
+  const [selectedLawCategory, setSelectedLawCategory] = useState<string>(IMPORTANT_BYE_LAWS[0].category);
   
   // Reminder State
   const [reminderList, setReminderList] = useState<{id: number, text: string, date: string}[]>([
@@ -240,6 +286,11 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>Std Desc</span>
       </button>
 
+      <button onClick={() => setShowByeLaws(!showByeLaws)} className={btnClass} title="Model Bye-Laws">
+        <Scale size={iconSize} className="text-pink-600 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>Bye-Laws</span>
+      </button>
+
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
       {/* EXPORT BUTTONS */}
@@ -361,7 +412,61 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
          </div>
       )}
 
-      {/* 3. Simple Calculator Popup */}
+      {/* 3. Model Bye-Laws Popup */}
+      {showByeLaws && (
+         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm p-4">
+             <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
+                 <div className="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
+                     <h3 className="text-lg font-bold flex items-center gap-2">
+                         <Scale size={20} className="text-pink-400" /> Important Model Bye-Laws
+                     </h3>
+                     <button onClick={() => setShowByeLaws(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                 </div>
+                 
+                 <div className="flex flex-1 overflow-hidden">
+                     {/* Sidebar Categories */}
+                     <div className="w-1/3 bg-slate-50 border-r border-slate-200 overflow-y-auto p-2">
+                         {IMPORTANT_BYE_LAWS.map((item, idx) => (
+                             <button
+                                key={idx}
+                                onClick={() => setSelectedLawCategory(item.category)}
+                                className={`w-full text-left p-3 rounded-lg text-sm font-bold mb-1 transition-colors ${
+                                    selectedLawCategory === item.category 
+                                    ? 'bg-indigo-100 text-indigo-700' 
+                                    : 'text-slate-600 hover:bg-slate-200'
+                                }`}
+                             >
+                                 {item.category}
+                             </button>
+                         ))}
+                     </div>
+                     
+                     {/* Content Area */}
+                     <div className="flex-1 overflow-y-auto p-6 bg-white">
+                         <h4 className="text-xl font-bold text-slate-800 mb-6 border-b pb-2">{selectedLawCategory}</h4>
+                         <div className="space-y-6">
+                             {IMPORTANT_BYE_LAWS.find(l => l.category === selectedLawCategory)?.rules.map((rule, idx) => (
+                                 <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                     <h5 className="font-bold text-indigo-600 mb-2 flex items-center gap-2">
+                                         {rule.title}
+                                     </h5>
+                                     <p className="text-slate-700 text-sm leading-relaxed text-justify">
+                                         {rule.content}
+                                     </p>
+                                 </div>
+                             ))}
+                         </div>
+                     </div>
+                 </div>
+                 
+                 <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500 shrink-0">
+                     These are summarized extracts from standard Model Bye-laws. Refer to the official booklet for legal purposes.
+                 </div>
+             </div>
+         </div>
+      )}
+
+      {/* 4. Simple Calculator Popup */}
       {showCalculator && (
         <div className="absolute top-20 left-1/3 z-50 bg-slate-800 p-4 rounded-xl shadow-2xl text-white w-64 border border-slate-700">
            <div className="flex justify-between mb-2">
@@ -386,7 +491,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         </div>
       )}
 
-      {/* 4. Calendar Popup */}
+      {/* 5. Calendar Popup */}
       {showCalendar && (
         <div className="absolute top-20 left-1/3 ml-16 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 w-80 text-slate-800">
            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
@@ -420,7 +525,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         </div>
       )}
 
-      {/* 5. Reminders Popup */}
+      {/* 6. Reminders Popup */}
       {showReminders && (
         <div className="absolute top-20 left-1/3 z-50 bg-white p-6 rounded-xl shadow-2xl border border-slate-200 w-80 text-left">
            <div className="flex justify-between items-center mb-4 border-b pb-2">
@@ -460,7 +565,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         </div>
       )}
 
-      {/* 6. WhatsApp Popup */}
+      {/* 7. WhatsApp Popup */}
       {showWhatsApp && (
          <div className="absolute top-20 right-20 z-50 bg-white p-6 rounded-xl shadow-2xl border border-slate-200 w-80 text-left">
              <div className="flex justify-between items-center mb-4">
@@ -499,7 +604,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
          </div>
       )}
 
-      {/* 7. Help Popup */}
+      {/* 8. Help Popup */}
       {showHelp && (
          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm p-4">
              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
@@ -517,7 +622,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                              <li className="flex items-center gap-2"><Edit3 size={16} className="text-blue-600"/> Modify settings or record</li>
                              <li className="flex items-center gap-2"><Search size={16} className="text-purple-600"/> Focus search bar</li>
                              <li className="flex items-center gap-2"><CalendarRange size={16} className="text-violet-600"/> Filter by Date Range</li>
-                             <li className="flex items-center gap-2"><FileSpreadsheet size={16} className="text-emerald-600"/> Export Table to Excel (CSV)</li>
+                             <li className="flex items-center gap-2"><Scale size={16} className="text-pink-600"/> View Model Bye-Laws</li>
                          </ul>
                      </div>
                      <div>
