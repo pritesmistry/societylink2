@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -496,13 +496,22 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                   <Receipt size={20} />
                               </button>
                           ) : (
-                              <button 
-                                onClick={() => handlePaymentClick(bill)}
-                                className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-full transition-colors"
-                                title="Record Payment"
-                              >
-                                  <CreditCard size={20} />
-                              </button>
+                              <>
+                                <button 
+                                    onClick={() => window.open(`https://payment-gateway.example.com/pay?billId=${bill.id}&amount=${bill.totalAmount}`, '_blank')}
+                                    className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 p-2 rounded-full transition-colors"
+                                    title="Pay Now (Online)"
+                                >
+                                    <ExternalLink size={20} />
+                                </button>
+                                <button 
+                                    onClick={() => handlePaymentClick(bill)}
+                                    className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-full transition-colors"
+                                    title="Record Payment"
+                                >
+                                    <CreditCard size={20} />
+                                </button>
+                              </>
                           )}
                       </div>
                   </td>

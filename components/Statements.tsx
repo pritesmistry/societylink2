@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Bill, Expense, Resident, Society, PaymentStatus } from '../types';
 import { Download, Search, Calendar, FileText, User, CreditCard } from 'lucide-react';
@@ -11,6 +10,12 @@ interface StatementsProps {
 }
 
 type StatementType = 'MEMBER_LEDGER' | 'BILL_REGISTER' | 'RECEIPT_REGISTER' | 'PAYMENT_VOUCHERS';
+
+interface LedgerData {
+  resident: Resident;
+  openingBalance: number;
+  transactions: any[];
+}
 
 declare global {
   interface Window {
@@ -26,16 +31,16 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
   // --- DATA PROCESSING LOGIC ---
 
   // 1. Member Ledger Logic
-  const memberLedgerData = useMemo(() => {
-    if (!selectedResidentId) return [];
+  const memberLedgerData = useMemo<LedgerData | null>(() => {
+    if (!selectedResidentId) return null;
     
     const resident = residents.find(r => r.id === selectedResidentId);
-    if (!resident) return [];
+    if (!resident) return null;
 
     const memberBills = bills.filter(b => b.residentId === selectedResidentId);
     
     // Convert Bills and Payments into a single chronological ledger
-    const transactions = [];
+    const transactions: any[] = [];
 
     // Add Bills (Debit)
     memberBills.forEach(b => {
@@ -224,7 +229,7 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
 
              {/* 1. MEMBER LEDGER VIEW */}
              {activeTab === 'MEMBER_LEDGER' && (
-                 selectedResidentId && memberLedgerData.resident ? (
+                 selectedResidentId && memberLedgerData ? (
                      <>
                         <div className="flex justify-between mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
                             <div>
