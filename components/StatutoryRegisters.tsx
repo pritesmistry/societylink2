@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Resident, Society, Bill, Expense } from '../types';
-import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck } from 'lucide-react';
+import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface StatutoryRegistersProps {
@@ -11,7 +11,7 @@ interface StatutoryRegistersProps {
   expenses?: Expense[];
 }
 
-type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM';
+type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS';
 
 declare global {
   interface Window {
@@ -33,6 +33,70 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       return { totalIncome, totalExpense, surplus };
   }, [bills, expenses]);
 
+  const SOCIETY_RULES = [
+    {
+        section: "1. General Discipline",
+        rules: [
+            "Members must ensure that their conduct does not cause nuisance, annoyance, or inconvenience to other residents.",
+            "Loud music, shouting, or noise is strictly prohibited after 10:00 PM.",
+            "Smoking and consumption of alcohol in common areas (terrace, garden, lobby) is strictly prohibited.",
+            "Main gates and common doors must be kept closed for security reasons."
+        ]
+    },
+    {
+        section: "2. Parking Regulations",
+        rules: [
+            "Vehicles must be parked strictly in the allotted spaces only.",
+            "Visitors' vehicles must be parked in the designated visitor parking area only.",
+            "Vehicles should not obstruct the movement of other vehicles or emergency services.",
+            "Washing of cars is permitted only in designated areas to avoid water stagnation."
+        ]
+    },
+    {
+        section: "3. Garbage Disposal",
+        rules: [
+            "Wet and dry waste must be segregated as per municipal guidelines.",
+            "Garbage bags must be tied properly to prevent spillage and odor.",
+            "Garbage must be kept outside the door only during specified collection timings.",
+            "Construction debris, furniture, or e-waste must be removed by the member at their own cost."
+        ]
+    },
+    {
+        section: "4. Renovation & Interior Work",
+        rules: [
+            "Prior written permission from the Managing Committee is required for any internal structural changes.",
+            "Work is permitted only between 9:00 AM and 6:00 PM on weekdays and Saturdays.",
+            "No heavy work causing noise (drilling, hammering) is allowed on Sundays and Public Holidays.",
+            "Workers must carry ID cards issued by the society."
+        ]
+    },
+    {
+        section: "5. Pet Policy",
+        rules: [
+            "Pets must be kept on a leash at all times in common areas.",
+            "Pet owners are responsible for cleaning up after their pets immediately.",
+            "Pets should not cause excessive noise or disturbance to neighbors.",
+            "Pets are not allowed in the children's play area, swimming pool, or gym."
+        ]
+    },
+    {
+        section: "6. Maintenance Charges",
+        rules: [
+            "Maintenance bills must be paid by the due date to avoid interest/penalty.",
+            "Non-payment of dues for more than 3 months may attract legal action and disconnection of essential services as per Bye-laws.",
+            "Service charges are applicable equally to all flats, irrespective of size or usage."
+        ]
+    },
+    {
+        section: "7. Sub-letting / Tenancy",
+        rules: [
+            "Members must intimate the society 8 days before sub-letting the flat.",
+            "A copy of the registered Leave & License agreement and Police Verification must be submitted.",
+            "Non-occupancy charges will be applicable as per the Bye-laws (limited to 10% of service charges)."
+        ]
+    }
+  ];
+
   const downloadPDF = (elementId: string, filename: string) => {
     const element = document.getElementById(elementId);
     if (!element) return;
@@ -44,7 +108,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: activeTab === 'RULES_REGULATIONS' ? 'portrait' : 'landscape' }
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
@@ -93,6 +157,12 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
               <UserCheck size={16} /> Nomination
           </button>
           <button 
+            onClick={() => setActiveTab('RULES_REGULATIONS')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'RULES_REGULATIONS' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <ScrollText size={16} /> Rules & Regulations
+          </button>
+          <button 
             onClick={() => setActiveTab('AUDIT_REPORT')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'AUDIT_REPORT' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
@@ -118,7 +188,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="register-container" 
-            className="bg-white w-[297mm] min-h-[210mm] p-[10mm] shadow-xl text-slate-800"
+            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -130,6 +200,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                      activeTab === 'J_REGISTER' ? 'Form J - List of Members' :
                      activeTab === 'SHARE_REGISTER' ? 'Share Register' :
                      activeTab === 'NOMINATION_REGISTER' ? 'Nomination Register' :
+                     activeTab === 'RULES_REGULATIONS' ? 'Society Rules & Regulations' :
                      activeTab === 'AUDIT_REPORT' ? 'Statutory Audit Report (Draft)' :
                      'Form "O" - Rectification Report'}
                 </h2>
@@ -253,6 +324,41 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                         ))}
                     </tbody>
                 </table>
+             )}
+
+             {/* RULES AND REGULATIONS */}
+             {activeTab === 'RULES_REGULATIONS' && (
+                 <div className="space-y-6">
+                    <p className="text-sm italic text-center text-slate-500 mb-6">
+                        These rules and regulations are approved by the Managing Committee and are binding on all members, residents, and visitors of the society.
+                    </p>
+
+                    {SOCIETY_RULES.map((section, idx) => (
+                        <div key={idx} className="mb-6 break-inside-avoid">
+                            <h3 className="font-bold text-slate-800 text-lg mb-2 border-b-2 border-slate-200 pb-1 flex items-center gap-2">
+                                {section.section}
+                            </h3>
+                            <ul className="list-disc pl-5 space-y-1">
+                                {section.rules.map((rule, rIdx) => (
+                                    <li key={rIdx} className="text-sm text-slate-700 leading-relaxed pl-1">
+                                        {rule}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+
+                    <div className="pt-8 mt-8 border-t border-slate-300 flex justify-between">
+                         <div className="text-center w-40">
+                             <div className="h-10 border-b border-slate-400"></div>
+                             <p className="font-bold mt-1">Hon. Secretary</p>
+                         </div>
+                         <div className="text-center w-40">
+                             <div className="h-10 border-b border-slate-400"></div>
+                             <p className="font-bold mt-1">Chairman</p>
+                         </div>
+                     </div>
+                 </div>
              )}
 
              {/* AUDIT REPORT */}
