@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Resident, Society, Bill, Expense, Income } from '../types';
-import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark, CalendarClock } from 'lucide-react';
+import { Download, Book, FileText, UserCheck, Users, FileCheck, ClipboardCheck, ScrollText, Landmark, CalendarClock, Building } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface StatutoryRegistersProps {
@@ -12,7 +12,7 @@ interface StatutoryRegistersProps {
   incomes?: Income[];
 }
 
-type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX' | 'DUE_DATES';
+type RegisterType = 'I_REGISTER' | 'J_REGISTER' | 'SHARE_REGISTER' | 'NOMINATION_REGISTER' | 'AUDIT_REPORT' | 'O_FORM' | 'RULES_REGULATIONS' | 'INCOME_TAX' | 'DUE_DATES' | 'CONVEYANCE_DEED';
 
 declare global {
   interface Window {
@@ -173,6 +173,30 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
     }
   ];
 
+  const CONVEYANCE_STEPS = [
+    { id: 1, title: 'GBM Resolution', status: 'Completed', date: '15-Aug-2023', desc: 'Resolution passed to apply for Deemed Conveyance.' },
+    { id: 2, title: 'Document Collection', status: 'In Progress', date: '', desc: 'Collecting 7/12 extracts, Index-II, and other papers.' },
+    { id: 3, title: 'Online Application', status: 'Pending', date: '', desc: 'Submission of proposal on Mahasahakar website.' },
+    { id: 4, title: 'Hearing @ DDR', status: 'Pending', date: '', desc: 'Hearing before District Deputy Registrar.' },
+    { id: 5, title: 'Deemed Conveyance Order', status: 'Pending', date: '', desc: 'Issuance of order and certificate by DDR.' },
+    { id: 6, title: 'Adjudication', status: 'Pending', date: '', desc: 'Payment of Stamp Duty on the Conveyance Deed.' },
+    { id: 7, title: 'Registration', status: 'Pending', date: '', desc: 'Registration of Deed at Sub-Registrar Office.' },
+    { id: 8, title: 'Property Card Update', status: 'Pending', date: '', desc: 'Final name change in City Survey / 7-12 records.' },
+  ];
+
+  const REQUIRED_DOCUMENTS = [
+    "Society Registration Certificate",
+    "List of Members",
+    "7/12 Extract and Village Form 6 (Mutation Entry)",
+    "Plot Layout Copy (Approved)",
+    "Commencement Certificate (CC)",
+    "Occupation Certificate (OC)",
+    "Index-II of all members",
+    "Development Agreement Copy",
+    "Architect Certificate regarding area",
+    "Search Report of last 30 years"
+  ];
+
   const downloadPDF = (elementId: string, filename: string) => {
     const element = document.getElementById(elementId);
     if (!element) return;
@@ -184,7 +208,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'RULES_REGULATIONS' || activeTab === 'DUE_DATES') ? 'portrait' : 'landscape' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'RULES_REGULATIONS' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED') ? 'portrait' : 'landscape' }
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
@@ -239,6 +263,12 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
               <ScrollText size={16} /> Rules & Regulations
           </button>
           <button 
+            onClick={() => setActiveTab('CONVEYANCE_DEED')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CONVEYANCE_DEED' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <Building size={16} /> Conveyance Deed
+          </button>
+          <button 
             onClick={() => setActiveTab('AUDIT_REPORT')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'AUDIT_REPORT' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
@@ -276,7 +306,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="register-container" 
-            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
+            className={`bg-white p-[10mm] shadow-xl text-slate-800 ${activeTab === 'RULES_REGULATIONS' || activeTab === 'INCOME_TAX' || activeTab === 'DUE_DATES' || activeTab === 'CONVEYANCE_DEED' ? 'w-[210mm]' : 'w-[297mm]'} min-h-[297mm]`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -292,6 +322,7 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                      activeTab === 'AUDIT_REPORT' ? 'Statutory Audit Report (Draft)' :
                      activeTab === 'INCOME_TAX' ? 'Income Tax Compliance Report' :
                      activeTab === 'DUE_DATES' ? 'Statutory Compliance Calendar' :
+                     activeTab === 'CONVEYANCE_DEED' ? 'Conveyance Deed Status Tracker' :
                      'Form "O" - Rectification Report'}
                 </h2>
              </div>
@@ -480,6 +511,78 @@ const StatutoryRegisters: React.FC<StatutoryRegistersProps> = ({ residents, acti
                      <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mt-8 text-sm text-indigo-800 break-inside-avoid">
                          <strong>Important Note:</strong> The Managing Committee is responsible for adhering to these dates. Failure to comply may attract penalties from the Registrar or Income Tax Department.
                      </div>
+                 </div>
+             )}
+
+             {/* CONVEYANCE DEED */}
+             {activeTab === 'CONVEYANCE_DEED' && (
+                 <div className="space-y-6">
+                    <div className="border border-slate-200 rounded p-4 bg-slate-50">
+                        <h3 className="font-bold text-slate-800 mb-4 border-b pb-2">Property Details (Land Records)</h3>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold">Land Survey No / CTS No</p>
+                                <p className="font-bold text-slate-800">123 / 456A (Placeholder)</p>
+                            </div>
+                            <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold">Plot Area</p>
+                                <p className="font-bold text-slate-800">2,500 Sq. Mtrs (Placeholder)</p>
+                            </div>
+                            <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold">Taluka / District</p>
+                                <p className="font-bold text-slate-800">Andheri / Mumbai Suburban</p>
+                            </div>
+                            <div>
+                                <p className="text-slate-500 text-xs uppercase font-bold">Original Land Owner</p>
+                                <p className="font-bold text-slate-800">M/s Builders & Developers Ltd</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                        {/* Status Tracker */}
+                        <div>
+                            <h3 className="font-bold text-slate-800 mb-3 text-lg">Process Status Tracker</h3>
+                            <div className="relative border-l-2 border-slate-200 ml-3 space-y-6">
+                                {CONVEYANCE_STEPS.map((step, idx) => (
+                                    <div key={idx} className="ml-6 relative">
+                                        <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 ${
+                                            step.status === 'Completed' ? 'bg-green-500 border-green-500' :
+                                            step.status === 'In Progress' ? 'bg-blue-500 border-blue-500' :
+                                            'bg-white border-slate-300'
+                                        }`}></div>
+                                        <div className="flex justify-between items-start">
+                                            <h4 className={`font-bold text-sm ${
+                                                step.status === 'Completed' ? 'text-green-700' :
+                                                step.status === 'In Progress' ? 'text-blue-700' : 'text-slate-400'
+                                            }`}>{step.title}</h4>
+                                            {step.date && <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-600">{step.date}</span>}
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-1">{step.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Document Checklist */}
+                        <div>
+                            <h3 className="font-bold text-slate-800 mb-3 text-lg">Document Checklist</h3>
+                            <div className="space-y-2">
+                                {REQUIRED_DOCUMENTS.map((doc, idx) => (
+                                    <div key={idx} className="flex items-start gap-3 p-2 border border-slate-200 rounded-lg hover:bg-slate-50">
+                                        <div className="mt-0.5 w-4 h-4 border-2 border-slate-300 rounded flex items-center justify-center shrink-0">
+                                            {/* Simulate checked state visually for first 2 items */}
+                                            {idx < 2 && <div className="w-2 h-2 bg-green-500 rounded-sm"></div>}
+                                        </div>
+                                        <span className="text-sm text-slate-700">{doc}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-4 p-3 bg-blue-50 text-blue-800 text-xs rounded border border-blue-100">
+                                Note: Deemed Conveyance application requires collecting all these documents. Legal consultation is recommended.
+                            </div>
+                        </div>
+                    </div>
                  </div>
              )}
 

@@ -173,8 +173,8 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
     const prevStats = financials.previous;
     const openingBalance = prevStats.cashInHand; // Closing of prev year is Opening of this year
 
-    const totalReceipts = openingBalance + maintenanceCollections + Object.values(otherIncomesByCategory).reduce((a: number, b) => a + (b as number), 0);
-    const totalPayments = Object.values(expensesByCategory).reduce((a: number, b) => a + (b as number), 0);
+    const totalReceipts = openingBalance + maintenanceCollections + (Object.values(otherIncomesByCategory) as number[]).reduce((a, b) => a + b, 0);
+    const totalPayments = (Object.values(expensesByCategory) as number[]).reduce((a, b) => a + b, 0);
     const closingBalance = totalReceipts - totalPayments;
 
     return {
