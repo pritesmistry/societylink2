@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Bill, Expense, Resident, Society, PaymentStatus } from '../types';
 import { Download, Search, Calendar, FileText, User, CreditCard } from 'lucide-react';
@@ -80,6 +81,15 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
      return bills.filter(b => b.generatedDate.startsWith(selectedMonth));
   }, [bills, selectedMonth]);
 
+  // Extract unique billing heads for bifurcation
+  const billHeads = useMemo(() => {
+    const heads = new Set<string>();
+    monthlyBillRegister.forEach(b => {
+        b.items.forEach(i => heads.add(i.description));
+    });
+    return Array.from(heads).sort();
+  }, [monthlyBillRegister]);
+
 
   // 3. Monthly Receipt Register (Statement of Receipts)
   const monthlyReceiptRegister = useMemo(() => {
@@ -110,7 +120,7 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: activeTab === 'MEMBER_LEDGER' ? 'portrait' : 'landscape' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'MEMBER_LEDGER' || activeTab === 'PAYMENT_VOUCHERS') ? 'portrait' : 'landscape' }
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
@@ -139,7 +149,7 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
             onClick={() => setActiveTab('BILL_REGISTER')}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === 'BILL_REGISTER' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
-              Bill Register
+              Bill Register (Bifurcated)
           </button>
           <button 
             onClick={() => setActiveTab('RECEIPT_REGISTER')}
@@ -198,7 +208,7 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="statement-container" 
-            className="bg-white w-[210mm] min-h-[297mm] p-[10mm] shadow-xl text-slate-800"
+            className={`bg-white min-h-[297mm] p-[10mm] shadow-xl text-slate-800 ${(activeTab === 'MEMBER_LEDGER' || activeTab === 'PAYMENT_VOUCHERS') ? 'w-[210mm]' : 'w-[297mm]'}`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -206,7 +216,7 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
                 <p className="text-sm text-slate-600">{activeSociety.address}</p>
                 <h2 className="text-lg font-bold mt-4 bg-slate-100 inline-block px-4 py-1 rounded border border-slate-300 uppercase">
                     {activeTab === 'MEMBER_LEDGER' ? 'Statement of Account (Member Ledger)' : 
-                     activeTab === 'BILL_REGISTER' ? `Bill Register - ${selectedMonth}` :
+                     activeTab === 'BILL_REGISTER' ? `Bill Register (Bifurcated) - ${selectedMonth}` :
                      activeTab === 'RECEIPT_REGISTER' ? `Receipt Register - ${selectedMonth}` :
                      `Payment Voucher Register - ${selectedMonth}`}
                 </h2>
@@ -265,36 +275,63 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
                  )
              )}
 
-             {/* 2. BILL REGISTER VIEW */}
+             {/* 2. BILL REGISTER VIEW (BIFURCATED) */}
              {activeTab === 'BILL_REGISTER' && (
                  <>
-                    <table className="w-full text-sm border-collapse border border-slate-300">
+                    <table className="w-full text-xs border-collapse border border-slate-300">
                         <thead>
                             <tr className="bg-slate-100">
-                                <th className="border border-slate-300 p-2 text-left">Bill Date</th>
+                                <th className="border border-slate-300 p-2 text-left whitespace-nowrap">Bill Date</th>
                                 <th className="border border-slate-300 p-2 text-left">Bill No</th>
-                                <th className="border border-slate-300 p-2 text-left">Unit No</th>
-                                <th className="border border-slate-300 p-2 text-left">Member Name</th>
-                                <th className="border border-slate-300 p-2 text-right">Bill Amount (₹)</th>
+                                <th className="border border-slate-300 p-2 text-left">Unit</th>
+                                <th className="border border-slate-300 p-2 text-left">Name</th>
+                                {billHeads.map(head => (
+                                    <th key={head} className="border border-slate-300 p-2 text-right bg-indigo-50/50">{head}</th>
+                                ))}
+                                <th className="border border-slate-300 p-2 text-right">Int.</th>
+                                <th className="border border-slate-300 p-2 text-right bg-slate-200">Total (₹)</th>
                             </tr>
                         </thead>
                         <tbody>
                             {monthlyBillRegister.length > 0 ? monthlyBillRegister.map((b, idx) => (
                                 <tr key={idx}>
-                                    <td className="border border-slate-300 p-2">{b.generatedDate}</td>
+                                    <td className="border border-slate-300 p-2 whitespace-nowrap">{b.generatedDate}</td>
                                     <td className="border border-slate-300 p-2">{b.id}</td>
                                     <td className="border border-slate-300 p-2">{b.unitNumber}</td>
-                                    <td className="border border-slate-300 p-2">{b.residentName}</td>
-                                    <td className="border border-slate-300 p-2 text-right">{b.totalAmount.toFixed(2)}</td>
+                                    <td className="border border-slate-300 p-2 truncate max-w-[100px]">{b.residentName}</td>
+                                    {billHeads.map(head => {
+                                        const item = b.items.find(i => i.description === head);
+                                        return (
+                                            <td key={head} className="border border-slate-300 p-2 text-right text-slate-600">
+                                                {item ? item.amount.toFixed(2) : '-'}
+                                            </td>
+                                        );
+                                    })}
+                                    <td className="border border-slate-300 p-2 text-right text-orange-600">
+                                        {b.interest > 0 ? b.interest.toFixed(2) : '-'}
+                                    </td>
+                                    <td className="border border-slate-300 p-2 text-right font-bold bg-slate-50">
+                                        {b.totalAmount.toFixed(2)}
+                                    </td>
                                 </tr>
                             )) : (
-                                <tr><td colSpan={5} className="p-4 text-center text-slate-500">No bills found for {selectedMonth}</td></tr>
+                                <tr><td colSpan={6 + billHeads.length} className="p-4 text-center text-slate-500">No bills found for {selectedMonth}</td></tr>
                             )}
                         </tbody>
                         <tfoot>
                              <tr className="bg-slate-100 font-bold">
-                                 <td colSpan={4} className="border border-slate-300 p-2 text-right">Total Billing</td>
+                                 <td colSpan={4} className="border border-slate-300 p-2 text-right uppercase">Totals</td>
+                                 {billHeads.map(head => {
+                                     const total = monthlyBillRegister.reduce((sum, b) => {
+                                          const item = b.items.find(i => i.description === head);
+                                          return sum + (item ? item.amount : 0);
+                                     }, 0);
+                                     return <td key={head} className="border border-slate-300 p-2 text-right">{total.toFixed(2)}</td>
+                                 })}
                                  <td className="border border-slate-300 p-2 text-right">
+                                     {monthlyBillRegister.reduce((sum, b) => sum + b.interest, 0).toFixed(2)}
+                                 </td>
+                                 <td className="border border-slate-300 p-2 text-right text-indigo-700">
                                      ₹{monthlyBillRegister.reduce((sum, b) => sum + b.totalAmount, 0).toFixed(2)}
                                  </td>
                              </tr>
