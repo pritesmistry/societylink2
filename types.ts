@@ -1,4 +1,5 @@
 
+
 export enum PaymentStatus {
   PAID = 'Paid',
   PENDING = 'Pending',
@@ -18,8 +19,6 @@ export interface BillLayout {
     rate: boolean;
     amount: boolean;
   };
-  template?: 'MODERN' | 'CLASSIC' | 'MINIMAL' | 'SPLIT_RECEIPT';
-  logo?: string;
 }
 
 export interface Society {
@@ -34,7 +33,6 @@ export interface Society {
   footerNote: string;
   totalUnits?: number;
   billLayout?: BillLayout;
-  billingHeads?: BillItem[];
 }
 
 export interface Resident {
@@ -70,7 +68,7 @@ export interface BillItem {
 
 export interface PaymentDetails {
   date: string;
-  mode: 'Cash' | 'Cheque' | 'UPI' | 'Bank Transfer' | 'Debit Note' | 'Credit Note';
+  mode: 'Cash' | 'Cheque' | 'UPI' | 'Bank Transfer';
   reference: string;
   remarks: string;
 }
@@ -89,7 +87,7 @@ export interface Bill {
   dueDate: string;
   status: PaymentStatus;
   generatedDate: string;
-  billMonth?: string; // Format YYYY-MM
+  billMonth?: string;
   
   paymentDetails?: PaymentDetails;
 }
@@ -103,7 +101,7 @@ export interface Expense {
   description: string;
   vendor: string;
   // Voucher Details
-  paymentMode?: 'Cash' | 'Cheque' | 'Online' | 'Journal' | 'Debit Note' | 'Credit Note';
+  paymentMode?: 'Cash' | 'Cheque' | 'Online' | 'Journal';
   referenceNo?: string; // Cheque No or Txn ID
   bankName?: string;
 }
@@ -143,4 +141,4 @@ export interface MeetingMinutes {
     actionItems: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'SOCIETIES' | 'RESIDENTS' | 'BILLING' | 'RECEIPTS' | 'INCOME' | 'RECEIPT_VOUCHERS' | 'EXPENSES' | 'VOUCHERS' | 'STATEMENTS' | 'BANK_RECONCILIATION' | 'STATUTORY_REGISTERS' | 'REPORTS' | 'MINUTES' | 'NOTICES' | 'TEMPLATES' | 'AI_INSIGHTS';
+export type ViewState = 'DASHBOARD' | 'SOCIETIES' | 'RESIDENTS' | 'BILLING' | 'RECEIPTS' | 'INCOME' | 'EXPENSES' | 'VOUCHERS' | 'STATEMENTS' | 'BANK_RECONCILIATION' | 'STATUTORY_REGISTERS' | 'REPORTS' | 'MINUTES' | 'NOTICES' | 'TEMPLATES' | 'AI_INSIGHTS';
