@@ -11,9 +11,10 @@ interface ResidentsProps {
   onBulkAddResidents: (r: Resident[]) => void;
   onUpdateResident: (r: Resident) => void;
   onDeleteResident: (id: string) => void;
+  balances?: { cash: number; bank: number };
 }
 
-const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddResident, onBulkAddResidents, onUpdateResident, onDeleteResident }) => {
+const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddResident, onBulkAddResidents, onUpdateResident, onDeleteResident, balances }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -158,6 +159,7 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
       <StandardToolbar 
         onSave={handleOpenAddModal}
         onSearch={() => searchInputRef.current?.focus()}
+        balances={balances}
       />
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">

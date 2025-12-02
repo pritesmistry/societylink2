@@ -4,7 +4,8 @@ import {
   Save, Edit3, Search, Calculator, Calendar, Bell, HelpCircle, 
   Printer, FileText, ChevronLeft, ChevronRight, X, CalendarRange,
   Copy, Check, MessageCircle, FileSpreadsheet, File, FileEdit,
-  Trash2, Plus, Share2, DownloadCloud, Keyboard, Scale, Lightbulb
+  Trash2, Plus, Share2, DownloadCloud, Keyboard, Scale, Lightbulb,
+  Wallet, Landmark
 } from 'lucide-react';
 
 interface StandardToolbarProps {
@@ -16,6 +17,7 @@ interface StandardToolbarProps {
   onNext?: () => void;
   onPeriodChange?: (startDate: string, endDate: string) => void;
   className?: string;
+  balances?: { cash: number; bank: number };
 }
 
 const STANDARD_DESCRIPTIONS = {
@@ -135,7 +137,7 @@ const SOCIETY_TIPS = [
 ];
 
 const StandardToolbar: React.FC<StandardToolbarProps> = ({ 
-  onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className 
+  onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className, balances
 }) => {
   // Toggle States
   const [showCalculator, setShowCalculator] = useState(false);
@@ -345,6 +347,19 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       <button onClick={() => setShowByeLaws(!showByeLaws)} className={btnClass} title="Model Bye-Laws">
         <Scale size={iconSize} className="text-pink-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Bye-Laws</span>
+      </button>
+
+      {/* CASH AND BANK BALANCE SYMBOLS */}
+      <div className="w-px h-10 bg-slate-200 mx-1"></div>
+
+      <button className={btnClass} title={balances ? `Cash: ₹${balances.cash.toLocaleString()}` : "Cash Balance"}>
+        <Wallet size={iconSize} className="text-green-700 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>Cash {balances ? `(${balances.cash.toLocaleString()})` : ''}</span>
+      </button>
+
+      <button className={btnClass} title={balances ? `Bank: ₹${balances.bank.toLocaleString()}` : "Bank Balance"}>
+        <Landmark size={iconSize} className="text-blue-700 group-hover:scale-110 transition-transform" />
+        <span className={labelClass}>Bank {balances ? `(${balances.bank.toLocaleString()})` : ''}</span>
       </button>
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>

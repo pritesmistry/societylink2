@@ -9,9 +9,10 @@ interface IncomeProps {
   incomes: Income[];
   societyId: string;
   onAddIncome: (income: Income) => void;
+  balances?: { cash: number; bank: number };
 }
 
-const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome }) => {
+const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome, balances }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newIncome, setNewIncome] = useState<Partial<Income>>({ 
       amount: 0,
@@ -42,6 +43,7 @@ const IncomeSection: React.FC<IncomeProps> = ({ incomes, societyId, onAddIncome 
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
         onSave={() => setIsModalOpen(true)}
+        balances={balances}
       />
 
       <div className="flex justify-between items-center">

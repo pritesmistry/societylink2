@@ -1,15 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { Bill, Expense, Resident, Society, PaymentStatus } from '../types';
-import { Download, Search, Calendar, FileText, User, CreditCard } from 'lucide-react';
+import { Download, Search, Calendar, FileText, User, CreditCard, AlertCircle } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface StatementsProps {
   bills: Bill[];
   expenses: Expense[];
   residents: Resident[];
   activeSociety: Society;
+  balances?: { cash: number; bank: number };
 }
 
-type StatementType = 'MEMBER_LEDGER' | 'BILL_REGISTER' | 'RECEIPT_REGISTER' | 'PAYMENT_VOUCHERS';
+type StatementType = 'MEMBER_LEDGER' | 'BILL_REGISTER' | 'RECEIPT_REGISTER' | 'PAYMENT_VOUCHERS' | 'OUTSTANDING_STATEMENT';
 
 interface LedgerData {
   resident: Resident;
@@ -23,10 +25,14 @@ declare global {
   }
 }
 
-const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, activeSociety }) => {
+const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, activeSociety, balances }) => {
   const [activeTab, setActiveTab] = useState<StatementType>('MEMBER_LEDGER');
   const [selectedResidentId, setSelectedResidentId] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+
+  // Outstanding Filters
+  const [minOutstandingAmount, setMinOutstandingAmount] = useState<number>(5000);
+  const [minMonthsDue, setMinMonthsDue] = useState<number>(3);
 
   // --- DATA PROCESSING LOGIC ---
 
@@ -111,6 +117,41 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
       return expenses.filter(e => e.date.startsWith(selectedMonth));
   }, [expenses, selectedMonth]);
 
+  // 5. Outstanding Statement Logic
+  const outstandingData = useMemo(() => {
+      return residents.map(r => {
+          const unpaidBills = bills.filter(b => b.residentId === r.id && b.status !== PaymentStatus.PAID);
+          const pendingAmount = unpaidBills.reduce((sum, b) => sum + b.totalAmount, 0);
+          const totalDue = r.openingBalance + pendingAmount;
+          
+          // Estimate months due
+          let estMonths = unpaidBills.length;
+          
+          // Try to account for opening balance in months estimate
+          // Calculate average bill amount for this user to guess how many months the opening balance represents
+          const allUserBills = bills.filter(b => b.residentId === r.id);
+          const avgBill = allUserBills.length > 0 
+              ? allUserBills.reduce((s,b)=>s+b.totalAmount,0) / allUserBills.length 
+              : 0;
+              
+          if (r.openingBalance > 0 && avgBill > 0) {
+              estMonths += Math.ceil(r.openingBalance / avgBill);
+          } else if (r.openingBalance > 0 && estMonths === 0) {
+              estMonths = 1; // Default to 1 if there is opening balance but no bill history
+          }
+
+          return {
+              ...r,
+              pendingAmount,
+              totalDue,
+              estMonths,
+              billCount: unpaidBills.length
+          };
+      })
+      .filter(r => r.totalDue >= minOutstandingAmount && r.estMonths >= minMonthsDue)
+      .sort((a,b) => b.totalDue - a.totalDue);
+  }, [residents, bills, minOutstandingAmount, minMonthsDue]);
+
 
   // --- DOWNLOAD PDF ---
   const downloadPDF = (elementId: string, filename: string) => {
@@ -125,7 +166,7 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'MEMBER_LEDGER' || activeTab === 'PAYMENT_VOUCHERS') ? 'portrait' : 'landscape' }
+      jsPDF:        { unit: 'in', format: 'a4', orientation: (activeTab === 'MEMBER_LEDGER' || activeTab === 'PAYMENT_VOUCHERS' || activeTab === 'OUTSTANDING_STATEMENT') ? 'portrait' : 'landscape' }
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
@@ -135,6 +176,12 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <StandardToolbar 
+        onSearch={() => alert("Search not available here")}
+        onPrint={() => downloadPDF('statement-container', `Statement_${activeTab}.pdf`)}
+        balances={balances}
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
            <h2 className="text-xl font-semibold text-slate-800">Statements & Registers</h2>
@@ -168,6 +215,12 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
           >
               Payment Vouchers
           </button>
+          <button 
+            onClick={() => setActiveTab('OUTSTANDING_STATEMENT')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'OUTSTANDING_STATEMENT' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+          >
+              <AlertCircle size={14} /> Outstanding Statement
+          </button>
       </div>
 
       {/* --- CONTROLS --- */}
@@ -186,6 +239,29 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
                       ))}
                   </select>
               </div>
+          ) : activeTab === 'OUTSTANDING_STATEMENT' ? (
+              <>
+                <div className="w-full md:w-1/4">
+                    <label className="block text-sm font-bold text-slate-700 mb-1">More than Amount (₹)</label>
+                    <input 
+                        type="number" 
+                        min="0"
+                        className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={minOutstandingAmount}
+                        onChange={e => setMinOutstandingAmount(Number(e.target.value))}
+                    />
+                </div>
+                <div className="w-full md:w-1/4">
+                    <label className="block text-sm font-bold text-slate-700 mb-1">More than Months</label>
+                    <input 
+                        type="number" 
+                        min="0"
+                        className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={minMonthsDue}
+                        onChange={e => setMinMonthsDue(Number(e.target.value))}
+                    />
+                </div>
+              </>
           ) : (
               <div className="w-full md:w-1/4">
                   <label className="block text-sm font-bold text-slate-700 mb-1">Select Month</label>
@@ -213,7 +289,7 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
       <div className="bg-slate-200 p-4 md:p-8 rounded-xl overflow-auto flex justify-center border border-slate-300 min-h-[500px]">
          <div 
             id="statement-container" 
-            className={`bg-white min-h-[297mm] p-[10mm] shadow-xl text-slate-800 ${(activeTab === 'MEMBER_LEDGER' || activeTab === 'PAYMENT_VOUCHERS') ? 'w-[210mm]' : 'w-[297mm]'}`}
+            className={`bg-white min-h-[297mm] p-[10mm] shadow-xl text-slate-800 ${(activeTab === 'MEMBER_LEDGER' || activeTab === 'PAYMENT_VOUCHERS' || activeTab === 'OUTSTANDING_STATEMENT') ? 'w-[210mm]' : 'w-[297mm]'}`}
          >
              {/* HEADER */}
              <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
@@ -223,8 +299,14 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
                     {activeTab === 'MEMBER_LEDGER' ? 'Statement of Account (Member Ledger)' : 
                      activeTab === 'BILL_REGISTER' ? `Bill Register (Bifurcated) - ${selectedMonth}` :
                      activeTab === 'RECEIPT_REGISTER' ? `Receipt Register - ${selectedMonth}` :
+                     activeTab === 'OUTSTANDING_STATEMENT' ? 'Statement of Outstanding Dues' :
                      `Payment Voucher Register - ${selectedMonth}`}
                 </h2>
+                {activeTab === 'OUTSTANDING_STATEMENT' && (
+                    <p className="text-sm text-slate-500 mt-2 italic">
+                        Criteria: Dues &gt; ₹{minOutstandingAmount} AND Pending for &gt; {minMonthsDue} Months
+                    </p>
+                )}
              </div>
 
              {/* 1. MEMBER LEDGER VIEW */}
@@ -395,9 +477,9 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
                             <tr className="bg-slate-100">
                                 <th className="border border-slate-300 p-2 text-left">Date</th>
                                 <th className="border border-slate-300 p-2 text-left">Voucher ID</th>
-                                <th className="border border-slate-300 p-2 text-left">Payee / Vendor</th>
+                                <th className="border border-slate-300 p-2 text-left">Vendor / Payee</th>
                                 <th className="border border-slate-300 p-2 text-left">Category</th>
-                                <th className="border border-slate-300 p-2 text-left">Description</th>
+                                <th className="border border-slate-300 p-2 text-left">Mode</th>
                                 <th className="border border-slate-300 p-2 text-right">Amount (₹)</th>
                             </tr>
                         </thead>
@@ -405,19 +487,19 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
                             {monthlyExpenseRegister.length > 0 ? monthlyExpenseRegister.map((e, idx) => (
                                 <tr key={idx}>
                                     <td className="border border-slate-300 p-2">{e.date}</td>
-                                    <td className="border border-slate-300 p-2">{e.id}</td>
+                                    <td className="border border-slate-300 p-2 text-xs">{e.id}</td>
                                     <td className="border border-slate-300 p-2">{e.vendor}</td>
                                     <td className="border border-slate-300 p-2">{e.category}</td>
-                                    <td className="border border-slate-300 p-2">{e.description}</td>
+                                    <td className="border border-slate-300 p-2 text-xs">{e.paymentMode}</td>
                                     <td className="border border-slate-300 p-2 text-right">{e.amount.toFixed(2)}</td>
                                 </tr>
                             )) : (
-                                <tr><td colSpan={6} className="p-4 text-center text-slate-500">No expense vouchers found for {selectedMonth}</td></tr>
+                                <tr><td colSpan={6} className="p-4 text-center text-slate-500">No vouchers found for {selectedMonth}</td></tr>
                             )}
                         </tbody>
                         <tfoot>
                              <tr className="bg-slate-100 font-bold">
-                                 <td colSpan={5} className="border border-slate-300 p-2 text-right">Total Expenses</td>
+                                 <td colSpan={5} className="border border-slate-300 p-2 text-right">Total Payments</td>
                                  <td className="border border-slate-300 p-2 text-right">
                                      ₹{monthlyExpenseRegister.reduce((sum, e) => sum + e.amount, 0).toFixed(2)}
                                  </td>
@@ -427,9 +509,51 @@ const Statements: React.FC<StatementsProps> = ({ bills, expenses, residents, act
                  </>
              )}
 
+             {/* 5. OUTSTANDING STATEMENT VIEW */}
+             {activeTab === 'OUTSTANDING_STATEMENT' && (
+                 <>
+                    <table className="w-full text-sm border-collapse border border-slate-300">
+                        <thead>
+                            <tr className="bg-slate-100">
+                                <th className="border border-slate-300 p-2 text-left">Unit No</th>
+                                <th className="border border-slate-300 p-2 text-left">Member Name</th>
+                                <th className="border border-slate-300 p-2 text-center">Unpaid Bills</th>
+                                <th className="border border-slate-300 p-2 text-center">Est. Months</th>
+                                <th className="border border-slate-300 p-2 text-right">Pending Amount</th>
+                                <th className="border border-slate-300 p-2 text-right">Opening Bal</th>
+                                <th className="border border-slate-300 p-2 text-right font-bold">Total Due (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {outstandingData.length > 0 ? outstandingData.map((r, idx) => (
+                                <tr key={idx}>
+                                    <td className="border border-slate-300 p-2 font-bold">{r.unitNumber}</td>
+                                    <td className="border border-slate-300 p-2">{r.name}</td>
+                                    <td className="border border-slate-300 p-2 text-center">{r.billCount}</td>
+                                    <td className="border border-slate-300 p-2 text-center text-red-600 font-bold">{r.estMonths}</td>
+                                    <td className="border border-slate-300 p-2 text-right">{r.pendingAmount.toFixed(2)}</td>
+                                    <td className="border border-slate-300 p-2 text-right text-slate-500">{r.openingBalance.toFixed(2)}</td>
+                                    <td className="border border-slate-300 p-2 text-right font-bold text-red-700 bg-red-50">
+                                        {r.totalDue.toFixed(2)}
+                                    </td>
+                                </tr>
+                            )) : (
+                                <tr><td colSpan={7} className="p-8 text-center text-slate-500">No members match the outstanding criteria.</td></tr>
+                            )}
+                        </tbody>
+                        <tfoot>
+                             <tr className="bg-slate-100 font-bold">
+                                 <td colSpan={6} className="border border-slate-300 p-2 text-right">Total Outstanding</td>
+                                 <td className="border border-slate-300 p-2 text-right text-red-700">
+                                     ₹{outstandingData.reduce((sum, r) => sum + r.totalDue, 0).toFixed(2)}
+                                 </td>
+                             </tr>
+                        </tfoot>
+                    </table>
+                 </>
+             )}
          </div>
       </div>
-
     </div>
   );
 };

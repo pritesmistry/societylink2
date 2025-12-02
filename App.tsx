@@ -17,9 +17,9 @@ import BankReconciliation from './components/BankReconciliation';
 import StatutoryRegisters from './components/StatutoryRegisters';
 import PaymentVouchers from './components/PaymentVouchers';
 import Templates from './components/Templates';
-import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income } from './types';
+import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income, PaymentStatus } from './types';
 import { MOCK_BILLS, MOCK_EXPENSES, MOCK_NOTICES, MOCK_RESIDENTS, MOCK_SOCIETIES, MOCK_MINUTES, MOCK_INCOME } from './constants';
-import { Clock } from 'lucide-react';
+import { Clock, Wallet, Landmark } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
@@ -53,6 +53,43 @@ const App: React.FC = () => {
   const activeNotices = useMemo(() => notices.filter(n => n.societyId === activeSocietyId), [notices, activeSocietyId]);
   const activeMinutes = useMemo(() => minutes.filter(m => m.societyId === activeSocietyId), [minutes, activeSocietyId]);
 
+  // --- BALANCE CALCULATION LOGIC ---
+  const financialBalances = useMemo(() => {
+      let cash = 0;
+      let bank = 0;
+
+      // 1. Add Income from Bills (Collections)
+      activeBills.forEach(b => {
+          if (b.status === PaymentStatus.PAID && b.paymentDetails) {
+              if (b.paymentDetails.mode === 'Cash') {
+                  cash += b.totalAmount;
+              } else {
+                  bank += b.totalAmount; // UPI, Cheque, Bank Transfer
+              }
+          }
+      });
+
+      // 2. Add Other Income (Receipt Vouchers)
+      activeIncomes.forEach(i => {
+          if (i.mode === 'Cash') {
+              cash += i.amount;
+          } else {
+              bank += i.amount;
+          }
+      });
+
+      // 3. Subtract Expenses
+      activeExpenses.forEach(e => {
+          if (e.paymentMode === 'Cash') {
+              cash -= e.amount;
+          } else if (e.paymentMode !== 'Journal' && e.paymentMode !== 'Debit Note' && e.paymentMode !== 'Credit Note') {
+              bank -= e.amount; // Cheque, Online
+          }
+      });
+
+      return { cash, bank };
+  }, [activeBills, activeIncomes, activeExpenses]);
+
   // Handlers
   const handleAddSociety = (society: Society) => {
     setSocieties(prev => [...prev, society]);
@@ -73,7 +110,6 @@ const App: React.FC = () => {
        const newSocieties = societies.filter(s => s.id !== id);
        setSocieties(newSocieties);
        
-       // If the deleted society was the active one, switch to the first available one
        if (id === activeSocietyId) {
          setActiveSocietyId(newSocieties[0].id);
        }
@@ -152,6 +188,7 @@ const App: React.FC = () => {
                 onUpdateSociety={handleUpdateSociety}
                 onDeleteSociety={handleDeleteSociety}
                 onSelectSociety={(id) => { setActiveSocietyId(id); setCurrentView('DASHBOARD'); }}
+                balances={financialBalances}
             />
         );
       case 'RESIDENTS':
@@ -163,6 +200,7 @@ const App: React.FC = () => {
             onBulkAddResidents={handleBulkAddResidents}
             onUpdateResident={handleUpdateResident}
             onDeleteResident={handleDeleteResident}
+            balances={financialBalances}
           />
         );
       case 'BILLING':
@@ -176,6 +214,7 @@ const App: React.FC = () => {
                 onBulkAddBills={handleBulkAddBills}
                 onUpdateSociety={handleUpdateSociety}
                 onUpdateBill={handleUpdateBill}
+                balances={financialBalances}
             />
         );
       case 'RECEIPTS':
@@ -185,6 +224,7 @@ const App: React.FC = () => {
                 activeSociety={activeSociety} 
                 onBulkUpdateBills={handleBulkUpdateBills}
                 onUpdateBill={handleUpdateBill}
+                balances={financialBalances}
             />
         );
       case 'INCOME':
@@ -193,6 +233,7 @@ const App: React.FC = () => {
                 incomes={activeIncomes} 
                 societyId={activeSocietyId} 
                 onAddIncome={handleAddIncome} 
+                balances={financialBalances}
             />
         );
       case 'EXPENSES':
@@ -203,6 +244,7 @@ const App: React.FC = () => {
                 onAddExpense={handleAddExpense} 
                 residents={activeResidents}
                 bills={activeBills}
+                balances={financialBalances}
             />
         );
       case 'VOUCHERS':
@@ -211,6 +253,7 @@ const App: React.FC = () => {
                 expenses={activeExpenses} 
                 activeSociety={activeSociety} 
                 onAddExpense={handleAddExpense} 
+                balances={financialBalances}
             />
         );
       case 'STATEMENTS':
@@ -220,6 +263,7 @@ const App: React.FC = () => {
                 expenses={activeExpenses} 
                 residents={activeResidents}
                 activeSociety={activeSociety}
+                balances={financialBalances}
             />
         );
       case 'BANK_RECONCILIATION':
@@ -228,6 +272,7 @@ const App: React.FC = () => {
                 bills={activeBills} 
                 expenses={activeExpenses} 
                 activeSociety={activeSociety} 
+                balances={financialBalances}
             />
         );
       case 'STATUTORY_REGISTERS':
@@ -238,10 +283,20 @@ const App: React.FC = () => {
                 bills={activeBills}
                 expenses={activeExpenses}
                 incomes={activeIncomes}
+                balances={financialBalances}
             />
         );
       case 'REPORTS':
-        return <Reports bills={activeBills} expenses={activeExpenses} residents={activeResidents} activeSociety={activeSociety} incomes={activeIncomes} />;
+        return (
+            <Reports 
+                bills={activeBills} 
+                expenses={activeExpenses} 
+                residents={activeResidents} 
+                activeSociety={activeSociety} 
+                incomes={activeIncomes} 
+                balances={financialBalances}
+            />
+        );
       case 'MINUTES':
         return (
             <Minutes 
@@ -249,14 +304,22 @@ const App: React.FC = () => {
                 activeSociety={activeSociety} 
                 onAddMinute={handleAddMinute} 
                 onDeleteMinute={handleDeleteMinute} 
+                balances={financialBalances}
             />
         );
       case 'NOTICES':
-        return <Notices notices={activeNotices} societyId={activeSocietyId} onAddNotice={handleAddNotice} />;
+        return (
+            <Notices 
+                notices={activeNotices} 
+                societyId={activeSocietyId} 
+                onAddNotice={handleAddNotice} 
+                balances={financialBalances}
+            />
+        );
       case 'TEMPLATES':
-        return <Templates />;
+        return <Templates balances={financialBalances} />;
       case 'AI_INSIGHTS':
-        return <AIInsights bills={activeBills} expenses={activeExpenses} />;
+        return <AIInsights bills={activeBills} expenses={activeExpenses} balances={financialBalances} />;
       default:
         return <Dashboard bills={activeBills} expenses={activeExpenses} residentCount={activeResidents.length} />;
     }
@@ -287,6 +350,26 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            {/* Live Financial Stats in Header */}
+            <div className="flex gap-4">
+                <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg border border-green-100" title="Cash Balance">
+                    <Wallet size={18} className="text-green-600" />
+                    <div>
+                        <p className="text-[10px] text-green-700 font-bold uppercase">Cash Bal</p>
+                        <p className="text-sm font-bold text-slate-800">₹{financialBalances.cash.toLocaleString()}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-100" title="Bank Balance">
+                    <Landmark size={18} className="text-blue-600" />
+                    <div>
+                        <p className="text-[10px] text-blue-700 font-bold uppercase">Bank Bal</p>
+                        <p className="text-sm font-bold text-slate-800">₹{financialBalances.bank.toLocaleString()}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
+
             {/* Live Time & Date */}
             <div className="flex items-center gap-3 text-right bg-slate-50 px-4 py-2 rounded-lg border border-slate-100 w-full md:w-auto justify-center md:justify-end">
                 <Clock className="text-indigo-600" size={24} />

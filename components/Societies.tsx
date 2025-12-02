@@ -11,9 +11,10 @@ interface SocietiesProps {
   onUpdateSociety: (society: Society) => void;
   onDeleteSociety: (id: string) => void;
   onSelectSociety: (id: string) => void;
+  balances?: { cash: number; bank: number };
 }
 
-const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAddSociety, onUpdateSociety, onDeleteSociety, onSelectSociety }) => {
+const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAddSociety, onUpdateSociety, onDeleteSociety, onSelectSociety, balances }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSociety, setNewSociety] = useState<Partial<Society>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -65,6 +66,7 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
         onSave={handleOpenAddModal}
+        balances={balances}
       />
 
       <div className="flex justify-between items-center">

@@ -11,9 +11,10 @@ interface ExpensesProps {
   onAddExpense: (expense: Expense) => void;
   residents?: Resident[];
   bills?: Bill[];
+  balances?: { cash: number; bank: number };
 }
 
-const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, residents = [], bills = [] }) => {
+const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, residents = [], bills = [], balances }) => {
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'PERSONAL'>('GENERAL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({ amount: 0 });
@@ -65,6 +66,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
     <div className="space-y-6">
       <StandardToolbar 
         onSave={() => activeTab === 'GENERAL' ? setIsModalOpen(true) : alert("Manage Members in Residents tab")}
+        balances={balances}
       />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

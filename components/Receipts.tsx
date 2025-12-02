@@ -9,6 +9,7 @@ interface ReceiptsProps {
   activeSociety: Society;
   onBulkUpdateBills: (bills: Bill[]) => void;
   onUpdateBill: (bill: Bill) => void;
+  balances?: { cash: number; bank: number };
 }
 
 declare global {
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateBills, onUpdateBill }) => {
+const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateBills, onUpdateBill, balances }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReceipt, setSelectedReceipt] = useState<Bill | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -189,6 +190,7 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
       <StandardToolbar 
         onSearch={() => alert("Use the search bar below")}
         onSave={() => setIsAddReceiptOpen(true)}
+        balances={balances}
       />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

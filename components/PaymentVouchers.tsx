@@ -9,6 +9,7 @@ interface PaymentVouchersProps {
   expenses: Expense[];
   activeSociety: Society;
   onAddExpense: (expense: Expense) => void;
+  balances?: { cash: number; bank: number };
 }
 
 declare global {
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSociety, onAddExpense }) => {
+const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSociety, onAddExpense, balances }) => {
   const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'JOURNAL' | 'DEBIT_NOTE' | 'CREDIT_NOTE'>('CASH');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -107,6 +108,7 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
         onSave={handleOpenModal} 
         onPrint={() => alert("Select a voucher to print")}
         onSearch={() => {}}
+        balances={balances}
       />
 
       <div className="flex gap-2 border-b border-slate-200 pb-1 flex-wrap">

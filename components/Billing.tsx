@@ -19,9 +19,10 @@ interface BillingProps {
   onBulkAddBills: (bills: Bill[]) => void;
   onUpdateSociety: (society: Society) => void;
   onUpdateBill: (bill: Bill) => void;
+  balances?: { cash: number; bank: number };
 }
 
-const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSociety, onGenerateBill, onBulkAddBills, onUpdateSociety, onUpdateBill }) => {
+const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSociety, onGenerateBill, onBulkAddBills, onUpdateSociety, onUpdateBill, balances }) => {
   const [filter, setFilter] = useState<PaymentStatus | 'All'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -395,7 +396,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   const handlePreview = (bill: Bill) => {
       setPreviewBill(bill);
-      // Sync local preview state with stored settings or default
       setPreviewTemplate(activeSociety.billLayout?.template || 'MODERN');
       setIsPreviewOpen(true);
   };
@@ -433,7 +433,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     const element = document.getElementById(elementId);
     if (!element) return;
     
-    // Temporarily remove shadow and border for clean print
     element.classList.remove('shadow-2xl', 'border');
     
     const opt = {
@@ -445,7 +444,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
-        // Restore styles
         element.classList.add('shadow-2xl', 'border');
     });
   };
@@ -463,6 +461,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       <StandardToolbar 
         onSave={handleOpenGenerateModal}
         onModify={() => setIsSettingsOpen(true)}
+        balances={balances}
       />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -960,26 +959,36 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                           />
                       </div>
 
-                      {/* Template Selector */}
+                      {/* Template Selector with Visual Grid */}
                       <div>
                           <label className="block text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
-                              <LayoutTemplate size={16} /> Bill Template
+                              <LayoutTemplate size={16} /> Bill Style & Format
                           </label>
-                          <select 
-                            className="w-full p-2 border border-slate-300 rounded text-slate-900 bg-slate-50"
-                            value={settings.template || 'MODERN'}
-                            onChange={(e) => setSettings({...settings, template: e.target.value as any})}
-                          >
-                              <option value="MODERN">Modern (Color Blocks)</option>
-                              <option value="CLASSIC">Classic (Formal Table)</option>
-                              <option value="MINIMAL">Minimal (Compact)</option>
-                              <option value="SPLIT_RECEIPT">Upper Bill / Lower Receipt</option>
-                          </select>
-                          <p className="text-xs text-slate-500 mt-1">
-                              {settings.template === 'SPLIT_RECEIPT' 
-                               ? 'Generates a bill on the top half and the previous month\'s receipt on the bottom.' 
-                               : 'Standard full-page bill format.'}
-                          </p>
+                          <div className="grid grid-cols-2 gap-3">
+                              {[
+                                  { id: 'MODERN', label: 'Modern Theme', desc: 'Clean, colorful, full-page design.' },
+                                  { id: 'CLASSIC', label: 'Classic Formal', desc: 'Traditional black & white table format.' },
+                                  { id: 'MINIMAL', label: 'Compact / Eco', desc: 'High density, saves paper and ink.' },
+                                  { id: 'SPLIT_RECEIPT', label: 'Bill + Receipt', desc: 'Top Bill, Bottom Previous Month Receipt.' }
+                              ].map((style) => (
+                                  <button
+                                      key={style.id}
+                                      onClick={() => setSettings({ ...settings, template: style.id as any })}
+                                      className={`p-3 rounded-lg border-2 text-left transition-all flex flex-col justify-between h-20 ${
+                                          settings.template === style.id 
+                                          ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' 
+                                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                      }`}
+                                  >
+                                      <span className={`font-bold text-sm ${settings.template === style.id ? 'text-indigo-700' : 'text-slate-700'}`}>
+                                          {style.label}
+                                      </span>
+                                      <span className="text-xs text-slate-500 leading-tight">
+                                          {style.desc}
+                                      </span>
+                                  </button>
+                              ))}
+                          </div>
                       </div>
 
                       {/* Logo Upload */}
@@ -1023,7 +1032,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                       </div>
 
                       <div className="space-y-3">
-                          <label className="block text-sm font-bold text-slate-900">Visibility</label>
+                          <label className="block text-sm font-bold text-slate-900">Visibility & Notes</label>
                           <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                               <input 
                                 type="checkbox" 
