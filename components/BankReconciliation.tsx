@@ -1,12 +1,14 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { Bill, Expense, PaymentStatus, Society } from '../types';
-import { Landmark, Upload, Download, CheckCircle, AlertCircle, ArrowLeftRight } from 'lucide-react';
+import { Landmark, Upload, Download, CheckCircle, AlertCircle, ArrowLeftRight, CalendarRange } from 'lucide-react';
+import StandardToolbar from './StandardToolbar';
 
 interface BankReconciliationProps {
   bills: Bill[];
   expenses: Expense[];
   activeSociety: Society;
+  balances?: { cash: number; bank: number };
 }
 
 interface BankTransaction {
@@ -17,22 +19,32 @@ interface BankTransaction {
   credit: number;
 }
 
-const BankReconciliation: React.FC<BankReconciliationProps> = ({ bills, expenses, activeSociety }) => {
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+const BankReconciliation: React.FC<BankReconciliationProps> = ({ bills, expenses, activeSociety, balances }) => {
+  // Default to current month range
+  const now = new Date();
+  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const [dateRange, setDateRange] = useState({ start: defaultStart, end: defaultEnd });
   const [bankStatement, setBankStatement] = useState<BankTransaction[]>([]);
   const [reconciledSystemIds, setReconciledSystemIds] = useState<Set<string>>(new Set());
   const [reconciledBankIds, setReconciledBankIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handlePeriodChange = (start: string, end: string) => {
+      setDateRange({ start, end });
+  };
+
   // --- 1. SYSTEM TRANSACTIONS (Cash Book) ---
   const systemTransactions = useMemo(() => {
-    const txns = [];
+    const txns: any[] = [];
 
     // Receipts (Money In / Debit in Cash Book / Credit in Bank)
     bills.filter(b => 
       b.status === PaymentStatus.PAID && 
       b.paymentDetails && 
-      b.paymentDetails.date.startsWith(selectedMonth)
+      b.paymentDetails.date >= dateRange.start && 
+      b.paymentDetails.date <= dateRange.end
     ).forEach(b => {
       txns.push({
         id: `SYS-RCP-${b.id}`,
@@ -45,7 +57,9 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ bills, expenses
 
     // Expenses (Money Out / Credit in Cash Book / Debit in Bank)
     expenses.filter(e => 
-      e.date.startsWith(selectedMonth)
+      e.date >= dateRange.start && 
+      e.date <= dateRange.end &&
+      e.paymentMode !== 'Cash' // Only Bank expenses usually
     ).forEach(e => {
       txns.push({
         id: `SYS-EXP-${e.id}`,
@@ -57,12 +71,12 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ bills, expenses
     });
 
     return txns.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [bills, expenses, selectedMonth]);
+  }, [bills, expenses, dateRange]);
 
 
   // --- 2. CALCULATIONS ---
   const systemBalance = useMemo(() => {
-    // Ideally this should include opening balance, but for this month view:
+    // Ideally this should include opening balance, but for this period view:
     const receipts = systemTransactions.filter(t => t.type === 'RECEIPT').reduce((acc, t) => acc + t.amount, 0);
     const payments = systemTransactions.filter(t => t.type === 'PAYMENT').reduce((acc, t) => acc + t.amount, 0);
     return receipts - payments;
@@ -144,31 +158,40 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ bills, expenses
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <StandardToolbar 
+        balances={balances}
+        onPeriodChange={handlePeriodChange}
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-xl font-semibold text-slate-800">Bank Reconciliation</h2>
           <p className="text-sm text-slate-500 mt-1">Match system transactions with bank statements.</p>
         </div>
-        <div className="flex gap-4 items-center">
-            <input 
-                type="month" 
-                className="p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
-            />
+        
+        <div className="flex flex-wrap gap-4 items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 px-2 text-sm text-slate-600 font-medium">
+                <CalendarRange size={16} className="text-indigo-500" />
+                <span>{dateRange.start}</span>
+                <span className="text-slate-400">to</span>
+                <span>{dateRange.end}</span>
+            </div>
+
+            <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
+
             <div className="flex gap-2">
                 <input type="file" ref={fileInputRef} accept=".csv" className="hidden" onChange={handleFileUpload} />
                 <button 
                     onClick={downloadTemplate}
-                    className="bg-white text-slate-600 px-3 py-2 rounded-lg border border-slate-200 text-sm flex items-center gap-2 hover:bg-slate-50"
+                    className="bg-white text-slate-600 px-3 py-1.5 rounded-md border border-slate-200 text-xs font-bold flex items-center gap-1 hover:bg-slate-50"
                 >
-                    <Download size={16} /> Template
+                    <Download size={14} /> Template
                 </button>
                 <button 
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-indigo-700 shadow-sm"
+                    className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1 hover:bg-indigo-700 shadow-sm"
                 >
-                    <Upload size={16} /> Import Statement
+                    <Upload size={14} /> Import Statement
                 </button>
             </div>
         </div>
@@ -178,11 +201,11 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ bills, expenses
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
               <Landmark className="text-indigo-600" />
-              Reconciliation Summary ({selectedMonth})
+              Reconciliation Summary
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
              <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                 <p className="text-slate-500 mb-1">Net System Balance</p>
+                 <p className="text-slate-500 mb-1">Net System Balance (Period)</p>
                  <p className="text-lg font-bold text-slate-800">₹{systemBalance.toFixed(2)}</p>
                  <p className="text-xs text-slate-400 mt-1">(Receipts - Expenses)</p>
              </div>
@@ -266,7 +289,7 @@ const BankReconciliation: React.FC<BankReconciliationProps> = ({ bills, expenses
                               );
                           })}
                           {systemTransactions.length === 0 && (
-                              <tr><td colSpan={4} className="p-8 text-center text-slate-400">No system transactions for this month.</td></tr>
+                              <tr><td colSpan={4} className="p-8 text-center text-slate-400">No system transactions for this period.</td></tr>
                           )}
                       </tbody>
                   </table>
