@@ -1,5 +1,4 @@
 
-
 export enum PaymentStatus {
   PAID = 'Paid',
   PENDING = 'Pending',
@@ -13,6 +12,8 @@ export interface BillLayout {
   showFooterNote: boolean;
   colorTheme: string; // Hex code
   showLogoPlaceholder: boolean;
+  logo?: string; // Base64 encoded logo image
+  template?: 'MODERN' | 'CLASSIC' | 'MINIMAL' | 'SPLIT_RECEIPT';
   columns: {
     description: boolean;
     type: boolean;
@@ -33,6 +34,7 @@ export interface Society {
   footerNote: string;
   totalUnits?: number;
   billLayout?: BillLayout;
+  billingHeads?: BillItem[];
 }
 
 export interface Resident {

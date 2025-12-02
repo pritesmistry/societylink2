@@ -8,6 +8,8 @@ const DEFAULT_BILL_LAYOUT = {
   showFooterNote: true,
   colorTheme: '#4f46e5', // Indigo-600
   showLogoPlaceholder: true,
+  logo: '',
+  template: 'MODERN',
   columns: {
     description: true,
     type: true,
@@ -27,7 +29,7 @@ export const MOCK_SOCIETIES: Society[] = [
     bankDetails: 'Bank: Metro City Bank\nAC: 1234567890\nIFSC: MCB001\nBranch: Park Ave',
     processedBy: 'John Doe (Secretary)',
     footerNote: 'Please pay before the due date to avoid late fees.',
-    billLayout: DEFAULT_BILL_LAYOUT
+    billLayout: DEFAULT_BILL_LAYOUT as any
   },
   {
     id: '2',
@@ -39,7 +41,7 @@ export const MOCK_SOCIETIES: Society[] = [
     bankDetails: 'Bank: Ocean View Bank\nAC: 9876543210\nIFSC: OVB099\nBranch: Bay Area',
     processedBy: 'Jane Smith (Manager)',
     footerNote: 'Thank you for being a valued resident.',
-    billLayout: { ...DEFAULT_BILL_LAYOUT, colorTheme: '#0891b2' } // Cyan-600
+    billLayout: { ...DEFAULT_BILL_LAYOUT, colorTheme: '#0891b2' } as any
   }
 ];
 

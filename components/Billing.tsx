@@ -1,8 +1,7 @@
 
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Save } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -20,9 +19,10 @@ interface BillingProps {
   onBulkAddBills: (bills: Bill[]) => void;
   onUpdateSociety: (society: Society) => void;
   onUpdateBill: (bill: Bill) => void;
+  balances?: { cash: number; bank: number };
 }
 
-const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSociety, onGenerateBill, onBulkAddBills, onUpdateSociety, onUpdateBill }) => {
+const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSociety, onGenerateBill, onBulkAddBills, onUpdateSociety, onUpdateBill, balances }) => {
   const [filter, setFilter] = useState<PaymentStatus | 'All'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -64,15 +64,34 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       showFooterNote: true,
       colorTheme: '#4f46e5',
       showLogoPlaceholder: true,
+      logo: '',
+      template: 'MODERN',
       columns: { description: true, type: true, rate: true, amount: true }
   };
 
   const [settings, setSettings] = useState<BillLayout>(activeSociety.billLayout || defaultLayout);
 
+  // Local state for preview customization
+  const [previewTemplate, setPreviewTemplate] = useState<'MODERN' | 'CLASSIC' | 'MINIMAL' | 'SPLIT_RECEIPT'>(settings.template || 'MODERN');
+
   const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
 
   // Calculate Total for Single Mode
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0) + interest;
+
+  // Derive Previous Paid Receipt for Preview
+  const lastReceipt = useMemo(() => {
+      if (!previewBill) return null;
+      // Find bills for same resident, that are PAID, excluding current bill
+      const paidBills = bills.filter(b => 
+          b.residentId === previewBill.residentId && 
+          b.status === PaymentStatus.PAID && 
+          b.id !== previewBill.id &&
+          b.paymentDetails
+      );
+      // Sort by payment date descending
+      return paidBills.sort((a, b) => new Date(b.paymentDetails!.date).getTime() - new Date(a.paymentDetails!.date).getTime())[0];
+  }, [previewBill, bills]);
 
   const getStatusColor = (status: PaymentStatus) => {
     switch (status) {
@@ -158,6 +177,41 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setIsSettingsOpen(false);
   };
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              setSettings({...settings, logo: reader.result as string});
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const handleSaveDefaultRules = () => {
+      const rulesToSave = items.map(item => ({
+          ...item,
+          amount: 0
+      }));
+      
+      onUpdateSociety({
+          ...activeSociety,
+          billingHeads: rulesToSave
+      });
+      alert("Billing rules saved as default for this society!");
+  };
+
+  const handleOpenGenerateModal = () => {
+      if (activeSociety.billingHeads && activeSociety.billingHeads.length > 0) {
+          setItems(activeSociety.billingHeads.map((h, i) => ({...h, id: `def-${Date.now()}-${i}`, amount: 0})));
+      } else {
+          setItems([{ id: Date.now().toString(), description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }]);
+      }
+      
+      setGenerationMode('SINGLE');
+      setIsModalOpen(true);
+  };
+
   const handleSingleGenerate = () => {
     const resident = residents.find(r => r.id === selectedResidentId);
     
@@ -189,7 +243,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     const multiplier = getMultiplier();
 
     const newBills: Bill[] = residents.map((resident, idx) => {
-        // Calculate items specifically for this resident
         const residentItems = items.map(item => {
             let amount = item.rate * multiplier;
             if (item.type === 'SqFt') {
@@ -233,7 +286,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         const lines = content.split(/\r\n|\n/);
         if (lines.length < 2) return;
 
-        // Parse Headers: Flat No, Maintenance, Water, ...
         const headers = lines[0].split(',').map(h => h.trim());
         const flatIndex = headers.findIndex(h => h.toLowerCase().includes('flat') || h.toLowerCase().includes('unit'));
         
@@ -338,6 +390,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   const handlePreview = (bill: Bill) => {
       setPreviewBill(bill);
+      setPreviewTemplate(activeSociety.billLayout?.template || 'MODERN');
       setIsPreviewOpen(true);
   };
 
@@ -374,7 +427,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     const element = document.getElementById(elementId);
     if (!element) return;
     
-    // Temporarily remove shadow and border for clean print
     element.classList.remove('shadow-2xl', 'border');
     
     const opt = {
@@ -386,7 +438,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
-        // Restore styles
         element.classList.add('shadow-2xl', 'border');
     });
   };
@@ -399,15 +450,13 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
   };
 
-  const handleSaveDefaultRules = () => {
-    alert("Default billing rules saved successfully!");
-  };
-
   return (
     <div className="space-y-6">
       <StandardToolbar 
-        onSave={() => { setGenerationMode('SINGLE'); setIsModalOpen(true); }}
+        onNew={handleOpenGenerateModal}
+        onSave={handleOpenGenerateModal}
         onModify={() => setIsSettingsOpen(true)}
+        balances={balances}
       />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -433,7 +482,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             Settings
             </button>
             <button 
-            onClick={() => { setGenerationMode('SINGLE'); setIsModalOpen(true); }}
+            onClick={handleOpenGenerateModal}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-sm"
             >
             <Plus size={18} />
@@ -689,7 +738,19 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       {isPreviewOpen && previewBill && (
           <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] backdrop-blur-sm p-4 overflow-y-auto">
               <div className="relative w-full max-w-4xl flex flex-col items-center">
-                  <div className="flex gap-4 mb-4">
+                  <div className="flex gap-4 mb-4 items-center">
+                      {/* Template Selector in Preview */}
+                      <select 
+                        className="bg-white text-slate-800 px-4 py-2 rounded-lg font-medium shadow-lg hover:bg-slate-50 border-r-8 border-transparent focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={previewTemplate}
+                        onChange={(e) => setPreviewTemplate(e.target.value as any)}
+                      >
+                          <option value="MODERN">Modern (Color)</option>
+                          <option value="CLASSIC">Classic (Formal)</option>
+                          <option value="MINIMAL">Minimal (Eco)</option>
+                          <option value="SPLIT_RECEIPT">Bill + Prev. Receipt</option>
+                      </select>
+
                       <button 
                         onClick={() => downloadPDF('invoice-preview', `Invoice_${previewBill?.id}.pdf`)}
                         className="bg-white text-indigo-600 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-indigo-50 flex items-center gap-2"
@@ -707,18 +768,22 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                   {/* INVOICE TEMPLATE FOR PDF */}
                   <div 
                     id="invoice-preview" 
-                    className="bg-white w-[210mm] min-h-[297mm] p-[15mm] shadow-2xl mx-auto text-slate-800"
-                    style={{ fontFamily: 'Inter, sans-serif' }}
+                    className="bg-white w-[210mm] min-h-[297mm] p-[10mm] shadow-2xl mx-auto text-slate-800 relative flex flex-col"
+                    style={{ fontFamily: previewTemplate === 'CLASSIC' ? 'serif' : 'Inter, sans-serif' }}
                   >
-                      {/* Header */}
-                      <div className="flex justify-between items-start border-b-2 pb-6 mb-6" style={{ borderColor: activeLayout.colorTheme }}>
+                      {/* --- RENDER BILL CONTENT BASED ON TEMPLATE --- */}
+                      
+                      {/* HEADER SECTION */}
+                      <div className={`flex justify-between items-start mb-6 ${previewTemplate === 'MODERN' ? 'border-b-2 pb-6' : 'border-b pb-4'}`} style={{ borderColor: previewTemplate === 'MODERN' ? activeLayout.colorTheme : '#000' }}>
                           <div>
-                              {activeLayout.showLogoPlaceholder && (
-                                  <div className="w-16 h-16 bg-slate-100 rounded-lg flex items-center justify-center mb-3 text-2xl font-bold text-slate-400">
+                              {activeLayout.logo ? (
+                                  <img src={activeLayout.logo} alt="Society Logo" className="h-20 w-auto object-contain mb-3" />
+                              ) : activeLayout.showLogoPlaceholder && (
+                                  <div className={`w-16 h-16 rounded-lg flex items-center justify-center mb-3 text-2xl font-bold ${previewTemplate === 'MODERN' ? 'bg-slate-100 text-slate-400' : 'border border-slate-800 text-slate-800'}`}>
                                       {activeSociety.name.substring(0, 2).toUpperCase()}
                                   </div>
                               )}
-                              <h1 className="text-3xl font-bold text-slate-900">{activeSociety.name}</h1>
+                              <h1 className={`text-2xl font-bold ${previewTemplate === 'MODERN' ? 'text-slate-900' : 'text-black uppercase'}`}>{activeSociety.name}</h1>
                               {activeLayout.showSocietyAddress && (
                                   <p className="text-sm text-slate-500 mt-1 whitespace-pre-wrap max-w-sm">{activeSociety.address}</p>
                               )}
@@ -727,90 +792,88 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                               )}
                           </div>
                           <div className="text-right">
-                              <h2 className="text-4xl font-black tracking-tight" style={{ color: activeLayout.colorTheme }}>{activeLayout.title}</h2>
+                              <h2 className={`text-3xl font-black tracking-tight ${previewTemplate === 'MODERN' ? '' : 'uppercase'}`} style={{ color: previewTemplate === 'MODERN' ? activeLayout.colorTheme : '#000' }}>{activeLayout.title}</h2>
                               <div className="mt-4 space-y-1">
-                                  <p className="text-sm text-slate-500">Invoice # <span className="font-bold text-slate-800">{previewBill.id}</span></p>
-                                  <p className="text-sm text-slate-500">Date: <span className="font-bold text-slate-800">{previewBill.generatedDate}</span></p>
-                                  <p className="text-sm text-slate-500">Due Date: <span className="font-bold text-slate-800">{previewBill.dueDate}</span></p>
+                                  <p className="text-sm">Invoice # <span className="font-bold">{previewBill.id}</span></p>
+                                  <p className="text-sm">Date: <span className="font-bold">{previewBill.generatedDate}</span></p>
+                                  <p className="text-sm">Due Date: <span className="font-bold">{previewBill.dueDate}</span></p>
                               </div>
                           </div>
                       </div>
 
-                      {/* Bill To & Bill Month */}
-                      <div className="mb-8 flex justify-between items-end">
+                      {/* BILL TO SECTION */}
+                      <div className={`mb-6 flex justify-between items-end ${previewTemplate === 'CLASSIC' ? 'border p-4' : ''}`}>
                           <div>
                             <p className="text-xs font-bold text-slate-400 uppercase mb-1">Bill To</p>
-                            <h3 className="text-xl font-bold text-slate-900">{previewBill.residentName}</h3>
-                            <p className="text-slate-600">Unit No: <span className="font-semibold">{previewBill.unitNumber}</span></p>
+                            <h3 className="text-xl font-bold">{previewBill.residentName}</h3>
+                            <p>Unit No: <span className="font-semibold">{previewBill.unitNumber}</span></p>
                           </div>
                           {previewBill.billMonth && (
-                              <div className="text-right bg-slate-50 p-3 rounded-lg border border-slate-100">
+                              <div className={`text-right ${previewTemplate === 'MODERN' ? 'bg-slate-50 p-3 rounded-lg border border-slate-100' : ''}`}>
                                   <p className="text-xs font-bold text-slate-400 uppercase mb-1">Bill for the month of</p>
-                                  <p className="text-lg font-bold text-slate-800 flex items-center justify-end gap-2">
-                                      <CalendarRange size={18} className="text-indigo-600" />
+                                  <p className="text-lg font-bold flex items-center justify-end gap-2">
                                       {formatBillingMonth(previewBill.billMonth)}
                                   </p>
                               </div>
                           )}
                       </div>
 
-                      {/* Items Table */}
-                      <table className="w-full mb-8">
+                      {/* TABLE SECTION */}
+                      <table className={`w-full mb-8 ${previewTemplate === 'CLASSIC' ? 'border-collapse border border-slate-300' : ''}`}>
                           <thead>
-                              <tr style={{ backgroundColor: activeLayout.colorTheme }} className="text-white">
-                                  {activeLayout.columns.description && <th className="p-3 text-left text-sm font-semibold first:rounded-tl-lg">Description</th>}
-                                  {activeLayout.columns.type && <th className="p-3 text-left text-sm font-semibold">Type</th>}
-                                  {activeLayout.columns.rate && <th className="p-3 text-right text-sm font-semibold">Rate</th>}
-                                  {activeLayout.columns.amount && <th className="p-3 text-right text-sm font-semibold last:rounded-tr-lg">Amount</th>}
+                              <tr style={{ backgroundColor: previewTemplate === 'MODERN' ? activeLayout.colorTheme : '#f3f4f6', color: previewTemplate === 'MODERN' ? 'white' : 'black' }}>
+                                  {activeLayout.columns.description && <th className={`p-3 text-left text-sm font-semibold ${previewTemplate === 'CLASSIC' ? 'border border-slate-400' : 'first:rounded-tl-lg'}`}>Description</th>}
+                                  {activeLayout.columns.type && <th className={`p-3 text-left text-sm font-semibold ${previewTemplate === 'CLASSIC' ? 'border border-slate-400' : ''}`}>Type</th>}
+                                  {activeLayout.columns.rate && <th className={`p-3 text-right text-sm font-semibold ${previewTemplate === 'CLASSIC' ? 'border border-slate-400' : ''}`}>Rate</th>}
+                                  {activeLayout.columns.amount && <th className={`p-3 text-right text-sm font-semibold ${previewTemplate === 'CLASSIC' ? 'border border-slate-400' : 'last:rounded-tr-lg'}`}>Amount</th>}
                               </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className={`${previewTemplate === 'CLASSIC' ? '' : 'divide-y divide-slate-100'}`}>
                               {previewBill.items.map((item, idx) => (
                                   <tr key={idx}>
-                                      {activeLayout.columns.description && <td className="p-3 text-sm text-slate-700">{item.description}</td>}
+                                      {activeLayout.columns.description && <td className={`p-3 text-sm ${previewTemplate === 'CLASSIC' ? 'border border-slate-300' : 'text-slate-700'}`}>{item.description}</td>}
                                       {activeLayout.columns.type && (
-                                        <td className="p-3 text-sm text-slate-500">
+                                        <td className={`p-3 text-sm ${previewTemplate === 'CLASSIC' ? 'border border-slate-300' : 'text-slate-500'}`}>
                                             {item.type === 'SqFt' ? 'Per Sq. Ft.' : 'Fixed'}
                                         </td>
                                       )}
-                                      {activeLayout.columns.rate && <td className="p-3 text-sm text-right text-slate-700">₹{item.rate}</td>}
-                                      {activeLayout.columns.amount && <td className="p-3 text-sm text-right font-semibold text-slate-900">₹{item.amount.toFixed(2)}</td>}
+                                      {activeLayout.columns.rate && <td className={`p-3 text-sm text-right ${previewTemplate === 'CLASSIC' ? 'border border-slate-300' : 'text-slate-700'}`}>₹{item.rate}</td>}
+                                      {activeLayout.columns.amount && <td className={`p-3 text-sm text-right font-semibold ${previewTemplate === 'CLASSIC' ? 'border border-slate-300' : 'text-slate-900'}`}>₹{item.amount.toFixed(2)}</td>}
                                   </tr>
                               ))}
                           </tbody>
                       </table>
 
-                      {/* Totals */}
-                      <div className="flex justify-end mb-12">
-                          <div className="w-1/2 space-y-3">
-                               <div className="flex justify-between text-sm text-slate-600">
+                      {/* TOTALS SECTION */}
+                      <div className="flex justify-end mb-8">
+                          <div className="w-1/2 space-y-2">
+                               <div className="flex justify-between text-sm">
                                    <span>Subtotal</span>
                                    <span>₹{(previewBill.totalAmount - previewBill.interest).toFixed(2)}</span>
                                </div>
                                {previewBill.interest > 0 && (
-                                   <div className="flex justify-between text-sm text-orange-600">
+                                   <div className="flex justify-between text-sm text-orange-600 font-medium">
                                        <span>Late Fee / Interest</span>
                                        <span>₹{previewBill.interest.toFixed(2)}</span>
                                    </div>
                                )}
-                               <div className="flex justify-between text-xl font-bold text-slate-900 pt-3 border-t border-slate-200">
+                               <div className={`flex justify-between text-xl font-bold pt-2 ${previewTemplate === 'CLASSIC' ? 'border-t-2 border-black' : 'border-t border-slate-200'}`}>
                                    <span>Total Due</span>
                                    <span>₹{previewBill.totalAmount.toFixed(2)}</span>
                                </div>
                           </div>
                       </div>
                       
-                       {/* Footer Info */}
-                      <div className="grid grid-cols-2 gap-8 border-t border-slate-200 pt-8">
+                       {/* FOOTER INFO - BILL PART */}
+                      <div className={`grid grid-cols-2 gap-8 border-t border-slate-200 pt-6 ${previewTemplate === 'SPLIT_RECEIPT' ? 'mb-8' : 'mb-auto'}`}>
                           <div className="flex gap-6 items-start">
                               {activeLayout.showBankDetails && (
                                   <div>
-                                      <h4 className="font-bold text-sm text-slate-900 mb-2">Bank Details</h4>
+                                      <h4 className="font-bold text-sm mb-2">Bank Details</h4>
                                       <p className="text-sm text-slate-500 whitespace-pre-line">{activeSociety.bankDetails || 'N/A'}</p>
                                   </div>
                               )}
                               
-                              {/* QR Code Space */}
                               <div className="flex flex-col items-center gap-1">
                                   <div className="w-24 h-24 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400">
                                       <div className="text-center">
@@ -824,12 +887,47 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                           
                           <div className="text-right flex flex-col justify-end">
                                {activeLayout.showFooterNote && (
-                                   <p className="text-xs text-slate-400 italic mb-8">{activeSociety.footerNote}</p>
+                                   <p className="text-xs text-slate-400 italic mb-4">{activeSociety.footerNote}</p>
                                )}
-                               <div className="h-16 border-b border-slate-300 w-48 ml-auto mb-2"></div>
-                               <p className="text-sm font-semibold text-slate-700">Authorized Signatory</p>
+                               <div className="h-12 border-b border-slate-300 w-48 ml-auto mb-1"></div>
+                               <p className="text-sm font-semibold">Authorized Signatory</p>
                           </div>
                       </div>
+
+                      {/* --- PREVIOUS RECEIPT FOOTER (SPLIT VIEW) --- */}
+                      {(previewTemplate === 'SPLIT_RECEIPT' || settings.template === 'SPLIT_RECEIPT') && (
+                          <div className="mt-auto pt-8 border-t-2 border-dashed border-slate-400 relative">
+                              <div className="absolute top-[-12px] left-1/2 -translate-x-1/2 bg-white px-2 text-slate-400 flex items-center gap-1 text-xs">
+                                  <Scissors size={14} /> Cut Here
+                              </div>
+                              <h4 className="text-center font-bold text-slate-700 uppercase mb-4 text-sm border-b pb-2">Receipt for Previous Payment</h4>
+                              
+                              {lastReceipt ? (
+                                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
+                                      <div className="flex justify-between mb-2">
+                                          <span><strong>Receipt No:</strong> RCP-{lastReceipt.id}</span>
+                                          <span><strong>Date:</strong> {lastReceipt.paymentDetails?.date}</span>
+                                      </div>
+                                      <div className="flex justify-between mb-2">
+                                          <span><strong>Received From:</strong> {lastReceipt.residentName} ({lastReceipt.unitNumber})</span>
+                                          <span><strong>Mode:</strong> {lastReceipt.paymentDetails?.mode}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center border-t border-slate-300 pt-2 mt-2">
+                                          <span>Being payment towards Bill #{lastReceipt.id}</span>
+                                          <span className="text-lg font-bold">₹ {lastReceipt.totalAmount.toFixed(2)}</span>
+                                      </div>
+                                      <div className="text-right mt-4">
+                                          <p className="text-xs font-bold">For {activeSociety.name}</p>
+                                          <p className="text-[10px] text-slate-500">(Computer Generated)</p>
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="text-center text-slate-400 italic py-4">
+                                      No previous payment receipt found for this member.
+                                  </div>
+                              )}
+                          </div>
+                      )}
                   </div>
               </div>
           </div>
@@ -856,6 +954,64 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                           />
                       </div>
 
+                      {/* Template Selector with Visual Grid */}
+                      <div>
+                          <label className="block text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                              <LayoutTemplate size={16} /> Bill Style & Format
+                          </label>
+                          <div className="grid grid-cols-2 gap-3">
+                              {[
+                                  { id: 'MODERN', label: 'Modern Theme', desc: 'Clean, colorful, full-page design.' },
+                                  { id: 'CLASSIC', label: 'Classic Formal', desc: 'Traditional black & white table format.' },
+                                  { id: 'MINIMAL', label: 'Compact / Eco', desc: 'High density, saves paper and ink.' },
+                                  { id: 'SPLIT_RECEIPT', label: 'Bill + Receipt', desc: 'Top Bill, Bottom Previous Month Receipt.' }
+                              ].map((style) => (
+                                  <button
+                                      key={style.id}
+                                      onClick={() => setSettings({ ...settings, template: style.id as any })}
+                                      className={`p-3 rounded-lg border-2 text-left transition-all flex flex-col justify-between h-20 ${
+                                          settings.template === style.id 
+                                          ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' 
+                                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                      }`}
+                                  >
+                                      <span className={`font-bold text-sm ${settings.template === style.id ? 'text-indigo-700' : 'text-slate-700'}`}>
+                                          {style.label}
+                                      </span>
+                                      <span className="text-xs text-slate-500 leading-tight">
+                                          {style.desc}
+                                      </span>
+                                  </button>
+                              ))}
+                          </div>
+                      </div>
+
+                      {/* Logo Upload */}
+                      <div>
+                          <label className="block text-sm font-bold text-slate-900 mb-2">Society Logo</label>
+                          <div className="flex items-center gap-4">
+                              {settings.logo ? (
+                                  <img src={settings.logo} alt="Logo Preview" className="h-12 w-12 object-contain border rounded bg-slate-50" />
+                              ) : (
+                                  <div className="h-12 w-12 bg-slate-100 rounded border border-dashed border-slate-300 flex items-center justify-center text-slate-400">
+                                      <ImageIcon size={20} />
+                                  </div>
+                              )}
+                              <label className="cursor-pointer bg-slate-100 px-4 py-2 rounded text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors">
+                                  <span>{settings.logo ? 'Change Logo' : 'Upload Logo'}</span>
+                                  <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      className="hidden" 
+                                      onChange={handleLogoUpload}
+                                  />
+                              </label>
+                              {settings.logo && (
+                                  <button onClick={() => setSettings({...settings, logo: ''})} className="text-red-500 hover:text-red-700 text-xs font-medium">Remove</button>
+                              )}
+                          </div>
+                      </div>
+
                       <div>
                           <label className="block text-sm font-bold text-slate-900 mb-2">Color Theme</label>
                           <div className="flex gap-3">
@@ -871,7 +1027,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                       </div>
 
                       <div className="space-y-3">
-                          <label className="block text-sm font-bold text-slate-900">Visibility</label>
+                          <label className="block text-sm font-bold text-slate-900">Visibility & Notes</label>
                           <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                               <input 
                                 type="checkbox" 
@@ -902,7 +1058,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                 checked={settings.showLogoPlaceholder} 
                                 onChange={e => setSettings({...settings, showLogoPlaceholder: e.target.checked})}
                               />
-                              Show Logo Placeholder
+                              Show Logo Placeholder (if no image)
                           </label>
                       </div>
 
@@ -959,368 +1115,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                   </div>
               </div>
           </div>
-      )}
-
-
-      {/* --- GENERATE BILL MODAL (Existing) --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm overflow-y-auto py-10">
-          <div className="bg-white rounded-xl p-8 w-full max-w-4xl shadow-2xl my-auto">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
-                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                    <FileText className="text-indigo-600" />
-                    Generate Bills
-                </h2>
-                {generationMode === 'SINGLE' && (
-                    <div className="text-right">
-                        <p className="text-sm text-slate-500">Total Amount</p>
-                        <p className="text-3xl font-bold text-indigo-600">₹{totalAmount.toFixed(2)}</p>
-                    </div>
-                )}
-            </div>
-            
-            {/* Generation Mode Tabs */}
-            <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
-                <div className="flex gap-2 p-1 bg-slate-100 rounded-lg w-fit h-fit">
-                    <button 
-                        onClick={() => setGenerationMode('SINGLE')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${generationMode === 'SINGLE' ? 'bg-white shadow-sm text-indigo-600 border border-slate-200' : 'text-slate-500'}`}
-                    >
-                        Single Bill
-                    </button>
-                    <button 
-                        onClick={() => setGenerationMode('BULK_RULES')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${generationMode === 'BULK_RULES' ? 'bg-white shadow-sm text-indigo-600 border border-slate-200' : 'text-slate-500'}`}
-                    >
-                        Bulk (Rules)
-                    </button>
-                    <button 
-                        onClick={() => setGenerationMode('BULK_CSV')}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${generationMode === 'BULK_CSV' ? 'bg-white shadow-sm text-indigo-600 border border-slate-200' : 'text-slate-500'}`}
-                    >
-                        Bulk (CSV Upload)
-                    </button>
-                </div>
-
-                {(generationMode === 'SINGLE' || generationMode === 'BULK_RULES') && (
-                     <div className="flex items-center gap-2 bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100">
-                         <Clock size={16} className="text-indigo-600" />
-                         <label className="text-sm font-bold text-indigo-900">Frequency:</label>
-                         <select 
-                            className="bg-white border border-indigo-200 text-indigo-900 text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                            value={billingFrequency}
-                            onChange={(e) => handleFrequencyChange(e.target.value as any)}
-                         >
-                             <option value="MONTHLY">Monthly</option>
-                             <option value="BI_MONTHLY">Bi-Monthly (x2)</option>
-                             <option value="QUARTERLY">Quarterly (x3)</option>
-                         </select>
-                     </div>
-                )}
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-8">
-              
-              {/* Single Mode: Resident Selection */}
-              {generationMode === 'SINGLE' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-slate-900 mb-2">Select Member</label>
-                      <select 
-                        className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                        required
-                        value={selectedResidentId}
-                        onChange={e => handleResidentChange(e.target.value)}
-                      >
-                        <option value="">-- Choose Unit / Member --</option>
-                        {residents.map(r => (
-                          <option key={r.id} value={r.id}>{r.unitNumber} - {r.name} ({r.sqFt} Sq. Ft.)</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                       <label className="block text-sm font-bold text-slate-900 mb-2">Bill for the Month of</label>
-                       <input 
-                        type="month" 
-                        required
-                        className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                        value={billingMonth}
-                        onChange={e => setBillingMonth(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                       <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date</label>
-                       <input 
-                        type="date" 
-                        required
-                        className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                        value={billDate}
-                        onChange={e => setBillDate(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-slate-900 mb-2">Due Date</label>
-                      <input 
-                        type="date" 
-                        required
-                        className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                        value={dueDate}
-                        onChange={e => setDueDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
-              )}
-
-              {/* Bulk Rules: Date Selection only */}
-              {generationMode === 'BULK_RULES' && (
-                  <div>
-                      <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg mb-4 flex items-start gap-3">
-                          <Users className="text-indigo-600 mt-1" size={20} />
-                          <div>
-                              <h4 className="font-bold text-indigo-900">Generate for All Members</h4>
-                              <p className="text-sm text-indigo-700">This will generate {residents.length} bills. Amounts set to "Per Sq. Ft." will be calculated automatically. All Monthly rates below will be multiplied by <strong>{getMultiplier()}</strong> for {billingFrequency.toLowerCase()} billing.</p>
-                          </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                          <label className="block text-sm font-bold text-slate-900 mb-2">Bill for the Month of</label>
-                          <input 
-                            type="month" 
-                            required
-                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                            value={billingMonth}
-                            onChange={e => setBillingMonth(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date</label>
-                          <input 
-                            type="date" 
-                            required
-                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                            value={billDate}
-                            onChange={e => setBillDate(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-slate-900 mb-2">Due Date for All Bills</label>
-                          <input 
-                            type="date" 
-                            required
-                            className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                            value={dueDate}
-                            onChange={e => setDueDate(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                  </div>
-              )}
-
-              {/* CSV Mode */}
-              {generationMode === 'BULK_CSV' && (
-                  <div className="space-y-6">
-                       <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg mb-4 flex items-start gap-3">
-                          <Upload className="text-blue-600 mt-1" size={20} />
-                          <div>
-                              <h4 className="font-bold text-blue-900">Upload Billing Data</h4>
-                              <p className="text-sm text-blue-800">Upload a CSV where the first column is "Flat No" and subsequent columns are charge heads (e.g., Maintenance, Water). Values should be fixed amounts.</p>
-                          </div>
-                      </div>
-                      
-                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                           <div>
-                              <label className="block text-sm font-bold text-slate-900 mb-2">Bill for the Month of</label>
-                              <input 
-                                type="month" 
-                                required
-                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                                value={billingMonth}
-                                onChange={e => setBillingMonth(e.target.value)}
-                              />
-                           </div>
-                           <div>
-                              <label className="block text-sm font-bold text-slate-900 mb-2">Bill Date (Default)</label>
-                              <input 
-                                type="date" 
-                                required
-                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                                value={billDate}
-                                onChange={e => setBillDate(e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-bold text-slate-900 mb-2">Due Date (Default)</label>
-                              <input 
-                                type="date" 
-                                required
-                                className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                                value={dueDate}
-                                onChange={e => setDueDate(e.target.value)}
-                              />
-                            </div>
-                        </div>
-
-                      <div className="flex gap-4">
-                          <button 
-                            type="button" 
-                            onClick={() => csvInputRef.current?.click()}
-                            className="bg-indigo-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-indigo-700"
-                          >
-                              <Upload size={20} /> Upload CSV
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={downloadCSVTemplate}
-                            className="bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-slate-50"
-                          >
-                              <Download size={20} /> Download Template
-                          </button>
-                          <input 
-                            type="file" 
-                            accept=".csv" 
-                            ref={csvInputRef} 
-                            className="hidden" 
-                            onChange={handleCSVUpload}
-                          />
-                      </div>
-                  </div>
-              )}
-
-              {/* Billing Heads Table - Show only for Single or Bulk Rules */}
-              {(generationMode === 'SINGLE' || generationMode === 'BULK_RULES') && (
-                  <>
-                      <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <label className="block text-sm font-bold text-slate-900">Billing Heads (Enter Monthly Rates)</label>
-                            <div className="flex gap-2">
-                                <button 
-                                    type="button" 
-                                    onClick={handleSaveDefaultRules}
-                                    className="text-sm bg-slate-100 text-slate-600 px-3 py-1 rounded hover:bg-slate-200 font-medium flex items-center gap-1 border border-slate-200"
-                                >
-                                    <Save size={14} /> Save as Default Rules
-                                </button>
-                                <button type="button" onClick={addItem} className="text-sm text-indigo-600 font-bold hover:text-indigo-800 flex items-center gap-1 px-2 py-1">
-                                    <Plus size={16} /> Add Head
-                                </button>
-                            </div>
-                          </div>
-                          
-                          <div className="bg-white rounded-xl border border-slate-300 overflow-hidden shadow-sm">
-                              <table className="w-full text-left">
-                                  <thead className="bg-slate-100 border-b border-slate-300 text-xs uppercase text-slate-700 font-bold">
-                                      <tr>
-                                          <th className="p-3 w-1/3">Description</th>
-                                          <th className="p-3 w-1/4">Type</th>
-                                          <th className="p-3 w-1/4">Monthly Rate / Amount</th>
-                                          {generationMode === 'SINGLE' && <th className="p-3 w-1/6 text-right">Total ({billingFrequency})</th>}
-                                          <th className="p-3 w-10"></th>
-                                      </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-200">
-                                      {items.map((item, index) => (
-                                          <tr key={index}>
-                                              <td className="p-2">
-                                                  <input 
-                                                      type="text" 
-                                                      placeholder="e.g. Maintenance"
-                                                      className="w-full p-2 border border-slate-300 rounded focus:outline-indigo-500 text-sm text-slate-900"
-                                                      value={item.description}
-                                                      onChange={e => handleItemChange(index, 'description', e.target.value)}
-                                                      required
-                                                  />
-                                              </td>
-                                              <td className="p-2">
-                                                  <select 
-                                                      className="w-full p-2 border border-slate-300 rounded focus:outline-indigo-500 text-sm text-slate-900"
-                                                      value={item.type}
-                                                      onChange={e => handleItemChange(index, 'type', e.target.value)}
-                                                  >
-                                                      <option value="Fixed">Fixed Amount</option>
-                                                      <option value="SqFt">Per Sq. Ft.</option>
-                                                  </select>
-                                              </td>
-                                              <td className="p-2">
-                                                  <div className="relative">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs">₹</span>
-                                                    <input 
-                                                        type="number" 
-                                                        min="0"
-                                                        step="0.01"
-                                                        className="w-full pl-6 p-2 border border-slate-300 rounded focus:outline-indigo-500 text-sm text-slate-900"
-                                                        value={item.rate}
-                                                        onChange={e => handleItemChange(index, 'rate', parseFloat(e.target.value))}
-                                                        required
-                                                    />
-                                                  </div>
-                                              </td>
-                                              {generationMode === 'SINGLE' && (
-                                                  <td className="p-2 text-right font-mono font-bold text-slate-900">
-                                                      ₹{item.amount.toFixed(2)}
-                                                  </td>
-                                              )}
-                                              <td className="p-2 text-center">
-                                                  {items.length > 1 && (
-                                                      <button 
-                                                        type="button" 
-                                                        onClick={() => removeItem(index)}
-                                                        className="text-slate-400 hover:text-red-600 transition-colors"
-                                                      >
-                                                          <Trash2 size={16} />
-                                                      </button>
-                                                  )}
-                                              </td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                              </table>
-                          </div>
-                      </div>
-
-                      {/* Interest / Penalty */}
-                      <div className="flex justify-end">
-                          <div className="w-full md:w-1/3 bg-orange-50 p-4 rounded-lg border border-orange-200">
-                              <label className="block text-sm font-bold text-orange-900 mb-2 flex items-center gap-2">
-                                  <AlertCircle size={14} />
-                                  Late Fee / Interest
-                              </label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-600 font-bold">₹</span>
-                                <input 
-                                    type="number" 
-                                    min="0"
-                                    className="w-full pl-8 p-2 border border-orange-300 rounded focus:ring-2 focus:ring-orange-400 outline-none bg-white text-orange-900 font-bold"
-                                    value={interest}
-                                    onChange={e => setInterest(parseFloat(e.target.value) || 0)}
-                                />
-                              </div>
-                              <p className="text-xs text-orange-800 mt-1 font-medium">Added once (not multiplied by frequency).</p>
-                          </div>
-                      </div>
-                  </>
-              )}
-
-              <div className="flex justify-end gap-4 pt-6 border-t border-slate-100">
-                <button 
-                  type="button"
-                  onClick={closeModal}
-                  className="px-6 py-3 text-slate-700 hover:bg-slate-100 rounded-lg font-semibold transition-colors border border-slate-300"
-                >
-                  Cancel
-                </button>
-                {generationMode !== 'BULK_CSV' && (
-                    <button 
-                      type="submit"
-                      className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
-                    >
-                      <FileText size={18} />
-                      {generationMode === 'SINGLE' ? 'Generate Bill' : 'Generate All Bills'}
-                    </button>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
       )}
     </div>
   );
