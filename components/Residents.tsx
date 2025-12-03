@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Resident } from '../types';
-import { Search, Plus, Mail, Phone, Upload, Download, Info, Edit, Trash2, Ruler, Wallet } from 'lucide-react';
+import { Search, Plus, Mail, Phone, Upload, Download, Info, Edit, Trash2, Ruler, Wallet, MessageCircle } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ResidentsProps {
@@ -23,6 +23,7 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
     occupancyType: 'Owner',
     sqFt: 0,
     openingBalance: 0,
+    whatsappNumber: '',
   };
 
   const [formData, setFormData] = useState<Partial<Resident>>(initialResidentState);
@@ -61,6 +62,7 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
         occupancyType: (formData.occupancyType as 'Owner' | 'Tenant') || 'Owner',
         sqFt: Number(formData.sqFt) || 0,
         openingBalance: Number(formData.openingBalance) || 0,
+        whatsappNumber: formData.whatsappNumber || '',
       };
 
       if (editingId) {
@@ -157,6 +159,7 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
   return (
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
+        onNew={handleOpenAddModal}
         onSave={handleOpenAddModal}
         onSearch={() => searchInputRef.current?.focus()}
         balances={balances}
@@ -262,7 +265,14 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
               </div>
               <div className="flex items-center gap-2 col-span-2 mb-2">
                 <Phone size={14} className="text-slate-400" />
-                {resident.contact || 'N/A'}
+                <div className="flex flex-col">
+                  <span>{resident.contact || 'N/A'}</span>
+                  {resident.whatsappNumber && (
+                     <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                       <MessageCircle size={10} /> {resident.whatsappNumber}
+                     </span>
+                  )}
+                </div>
               </div>
               
               <div className="flex items-center gap-1 text-xs">
@@ -346,6 +356,17 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
                   className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
                   value={formData.contact || ''}
                   onChange={e => setFormData({...formData, contact: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp Number</label>
+                <input 
+                  type="tel" 
+                  className="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={formData.whatsappNumber || ''}
+                  onChange={e => setFormData({...formData, whatsappNumber: e.target.value})}
+                  placeholder="+91..."
                 />
               </div>
 

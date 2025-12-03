@@ -58,6 +58,9 @@ export interface Resident {
   nomineeName?: string;
   nomineeRelation?: string;
   nominationDate?: string;
+  
+  // Additional Contact
+  whatsappNumber?: string;
 }
 
 export interface BillItem {

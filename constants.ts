@@ -48,31 +48,31 @@ export const MOCK_SOCIETIES: Society[] = [
 export const MOCK_RESIDENTS: Resident[] = [
   { 
     id: '1', societyId: '1', name: 'Alice Johnson', unitNumber: 'A-101', contact: '+1234567890', email: 'alice@example.com', occupancyType: 'Owner',
-    sqFt: 1200, openingBalance: 0,
+    sqFt: 1200, openingBalance: 0, whatsappNumber: '+1234567890',
     membershipDate: '2020-01-15', shareCertificateNumber: '001', shareDistinctiveFrom: 1, shareDistinctiveTo: 5, nomineeName: 'Bob Johnson', nomineeRelation: 'Spouse', nominationDate: '2020-02-01'
   },
   { 
     id: '2', societyId: '1', name: 'Bob Smith', unitNumber: 'A-102', contact: '+1234567891', email: 'bob@example.com', occupancyType: 'Tenant',
-    sqFt: 1200, openingBalance: 500
+    sqFt: 1200, openingBalance: 500, whatsappNumber: '+1234567891'
   },
   { 
     id: '3', societyId: '1', name: 'Charlie Brown', unitNumber: 'B-201', contact: '+1234567892', email: 'charlie@example.com', occupancyType: 'Owner',
-    sqFt: 1500, openingBalance: 0,
+    sqFt: 1500, openingBalance: 0, whatsappNumber: '+1234567892',
     membershipDate: '2020-03-10', shareCertificateNumber: '002', shareDistinctiveFrom: 6, shareDistinctiveTo: 10, nomineeName: 'Sally Brown', nomineeRelation: 'Sister', nominationDate: '2020-03-20'
   },
   { 
     id: '4', societyId: '1', name: 'Diana Prince', unitNumber: 'B-202', contact: '+1234567893', email: 'diana@example.com', occupancyType: 'Owner',
-    sqFt: 1500, openingBalance: 0,
+    sqFt: 1500, openingBalance: 0, whatsappNumber: '+1234567893',
     membershipDate: '2021-06-01', shareCertificateNumber: '003', shareDistinctiveFrom: 11, shareDistinctiveTo: 15
   },
   { 
     id: '5', societyId: '1', name: 'Evan Wright', unitNumber: 'C-301', contact: '+1234567894', email: 'evan@example.com', occupancyType: 'Tenant',
-    sqFt: 950, openingBalance: 0 
+    sqFt: 950, openingBalance: 0, whatsappNumber: '+1234567894'
   },
   // Society 2 Residents
   { 
     id: '6', societyId: '2', name: 'Frank Castle', unitNumber: '101', contact: '+1987654321', email: 'frank@example.com', occupancyType: 'Owner',
-    sqFt: 2000, openingBalance: 1000
+    sqFt: 2000, openingBalance: 1000, whatsappNumber: '+1987654321'
   },
 ];
 
