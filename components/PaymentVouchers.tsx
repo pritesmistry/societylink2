@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Expense, Society } from '../types';
 import { EXPENSE_CATEGORIES } from '../constants';
-import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen, ArrowUpRight, ArrowDownLeft, Upload } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface PaymentVouchersProps {
@@ -23,6 +23,8 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Expense | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<Partial<Expense>>({
     paymentMode: 'Cash',
@@ -95,22 +97,101 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
     });
   };
 
+  const downloadTemplate = () => {
+    const headers = "Date (YYYY-MM-DD),Payee Name,Category,Amount,Description,Payment Mode,Reference No,Bank Name\n";
+    const example = "2023-10-01,Clean Squad Services,Cleaning,5000,Monthly Cleaning Charges,Cheque,123456,SBI\n2023-10-05,City Power,Utilities,1200,Electricity Bill,Online,TXN998877,";
+    const blob = new Blob([headers + example], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'voucher_bulk_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const content = e.target?.result as string;
+        if (!content) return;
+
+        const lines = content.split(/\r\n|\n/);
+        let successCount = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const parts = line.split(',').map(p => p.trim());
+            if (parts.length < 4) continue;
+
+            const [date, vendor, category, amountStr, description, mode, ref, bank] = parts;
+
+            if (vendor && amountStr) {
+                onAddExpense({
+                    id: `VCH-BLK-${Date.now()}-${i}`,
+                    societyId: activeSociety.id,
+                    category: category || 'Administrative',
+                    amount: parseFloat(amountStr) || 0,
+                    date: date || new Date().toISOString().split('T')[0],
+                    description: description || 'Bulk Entry',
+                    vendor: vendor,
+                    paymentMode: (mode as any) || 'Cash',
+                    referenceNo: ref || '',
+                    bankName: bank || ''
+                });
+                successCount++;
+            }
+        }
+        alert(`Successfully imported ${successCount} vouchers.`);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-           <h2 className="text-xl font-semibold text-slate-800">Voucher Management</h2>
-           <p className="text-sm text-slate-500 mt-1">Cash, Bank, Journal, Debit & Credit Notes.</p>
-        </div>
-      </div>
-      
       <StandardToolbar 
+        onNew={handleOpenModal}
         onSave={handleOpenModal} 
         onPrint={() => alert("Select a voucher to print")}
         onSearch={() => {}}
         balances={balances}
       />
-
+      
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+           <h2 className="text-xl font-semibold text-slate-800">Voucher Management</h2>
+           <p className="text-sm text-slate-500 mt-1">Cash, Bank, Journal, Debit & Credit Notes.</p>
+        </div>
+        <div className="flex gap-2">
+             <input 
+                type="file" 
+                accept=".csv" 
+                ref={fileInputRef} 
+                className="hidden" 
+                onChange={handleBulkUpload} 
+            />
+            <button 
+                onClick={downloadTemplate} 
+                className="bg-white text-slate-600 border border-slate-200 px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-colors text-sm shadow-sm"
+                title="Download CSV Template"
+            >
+                <FileText size={16} /> Template
+            </button>
+            <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-900 transition-colors shadow-sm text-sm"
+                title="Upload CSV"
+            >
+                <Upload size={16} /> Bulk Upload
+            </button>
+        </div>
+      </div>
+      
       <div className="flex gap-2 border-b border-slate-200 pb-1 flex-wrap">
           <button 
             onClick={() => setActiveTab('CASH')}
