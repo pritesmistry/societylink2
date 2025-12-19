@@ -98,6 +98,46 @@ const IMPORTANT_BYE_LAWS = [
             { title: "Quorum", content: "The quorum for the General Meeting shall be 2/3rds of the total members or 20, whichever is less." },
             { title: "Voting", content: "Every member has one vote. In case of joint ownership, the person whose name stands first in the share certificate has the right to vote." }
         ]
+    },
+    {
+        category: "VI. Managing Committee",
+        rules: [
+            { title: "Constitution", content: "The Committee consists of 11 to 21 members depending on society size. Reserved seats must be kept for SC/ST, Women, and BC." },
+            { title: "Meetings", content: "The Committee must meet at least once a month. The Secretary must issue notice 3 days in advance." },
+            { title: "Tenure", content: "The term of office of the elected members of the Management Committee is 5 years from the date of the first meeting." }
+        ]
+    },
+    {
+        category: "VII. Transfer of Shares & Interest",
+        rules: [
+            { title: "Transfer Premium", content: "The premium for the transfer of a flat (Transfer Fee) cannot exceed ₹25,000 as per govt notification." },
+            { title: "NOC Requirement", content: "NOC from the Society is required for sale or mortgage. It must be issued within 30 days of application." },
+            { title: "Associate Member", content: "A person can become an associate member by paying an entrance fee of ₹100 and providing a consent letter from the original member." }
+        ]
+    },
+    {
+        category: "VIII. Common Area Usage",
+        rules: [
+            { title: "Terrace Rights", content: "Terrace is common property. No member can claim exclusive rights unless specified in the development agreement." },
+            { title: "Hoardings/Ads", content: "Society can generate income by renting out terrace space for mobile towers or building walls for ads, subject to GBM approval." },
+            { title: "External Painting", content: "No member shall paint the external walls of their flat with a different color than the society's uniform theme." }
+        ]
+    },
+    {
+        category: "IX. Rights of Members",
+        rules: [
+            { title: "Inspection of Books", content: "Members have the right to inspect society records, audit reports, and minutes of meetings during office hours." },
+            { title: "Certified Copies", content: "Members can obtain certified copies of society documents by paying a nominal fee per page." },
+            { title: "Resignation", content: "A member can resign from membership by giving 3 months' notice to the society." }
+        ]
+    },
+    {
+        category: "X. Penalties & Discipline",
+        rules: [
+            { title: "Fine for Breach", content: "The Committee may levy a penalty for breach of bye-laws, provided the member is given a hearing (Natural Justice)." },
+            { title: "Recovery of Dues", content: "Non-payment of dues for more than 3 months allows the society to initiate recovery under Section 101 of the MCS Act." },
+            { title: "Nuisance", content: "The Society can fine members for creating public nuisance, illegal parking, or unauthorized structural changes." }
+        ]
     }
 ];
 
@@ -139,7 +179,6 @@ const SOCIETY_TIPS = [
 const StandardToolbar: React.FC<StandardToolbarProps> = ({ 
   onSave, onModify, onSearch, onPrint, onPrev, onNext, onPeriodChange, className, balances
 }) => {
-  // Toggle States
   const [showCalculator, setShowCalculator] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showPeriod, setShowPeriod] = useState(false);
@@ -150,43 +189,34 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   const [showByeLaws, setShowByeLaws] = useState(false);
   const [showTips, setShowTips] = useState(false);
   
-  // Feature States
   const [calcInput, setCalcInput] = useState('');
   const [copiedDescIndex, setCopiedDescIndex] = useState<string | null>(null);
   const [selectedLawCategory, setSelectedLawCategory] = useState<string>(IMPORTANT_BYE_LAWS[0].category);
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
   
-  // Initialize Tip Index randomly on mount
   useEffect(() => {
     setCurrentTipIndex(Math.floor(Math.random() * SOCIETY_TIPS.length));
   }, []);
 
-  // Reminder State
   const [reminderList, setReminderList] = useState<{id: number, text: string, date: string}[]>([
       { id: 1, text: 'Submit Monthly TDS Return', date: new Date().toISOString().split('T')[0] },
       { id: 2, text: 'Renew Lift AMC', date: '2023-11-01' }
   ]);
   const [newReminder, setNewReminder] = useState({ text: '', date: '' });
 
-  // WhatsApp State
   const [waNumber, setWaNumber] = useState('');
   const [waMessage, setWaMessage] = useState('Here is the requested document from SocietyLink.');
 
-  // Period State
   const [period, setPeriod] = useState({
     from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0]
   });
   
-  // Calendar State
   const [calDate, setCalDate] = useState(new Date());
-
-  // --- HANDLERS ---
 
   const handleCalc = (val: string) => {
       if (val === '=') {
           try {
-              // eslint-disable-next-line no-eval
               setCalcInput(eval(calcInput).toString());
           } catch {
               setCalcInput('Error');
@@ -211,7 +241,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       setTimeout(() => setCopiedDescIndex(null), 1500);
   };
 
-  // Reminder Logic
   const addReminder = () => {
       if (newReminder.text) {
           setReminderList([...reminderList, { id: Date.now(), text: newReminder.text, date: newReminder.date || 'No Date' }]);
@@ -223,7 +252,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       setReminderList(reminderList.filter(r => r.id !== id));
   };
 
-  // Tips Logic
   const nextTip = () => {
       setCurrentTipIndex((prev) => (prev + 1) % SOCIETY_TIPS.length);
   };
@@ -232,7 +260,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       setCurrentTipIndex((prev) => (prev - 1 + SOCIETY_TIPS.length) % SOCIETY_TIPS.length);
   };
 
-  // Excel Export Logic (Table Scraper)
   const handleExcelExport = () => {
       const table = document.querySelector('table');
       if (!table) {
@@ -259,7 +286,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       document.body.removeChild(link);
   };
 
-  // WhatsApp Logic
   const handleWhatsAppShare = () => {
       if (waNumber) {
           const url = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessage)}`;
@@ -268,7 +294,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
       }
   };
 
-  // Calendar Helpers
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -279,7 +304,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
 
   const { days, firstDay, year, month } = getDaysInMonth(calDate);
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
 
   const btnClass = "p-2 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px] group relative";
   const iconSize = 24; 
@@ -349,7 +373,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>Bye-Laws</span>
       </button>
 
-      {/* CASH AND BANK BALANCE SYMBOLS */}
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
       <button className={btnClass} title={balances ? `Cash: ₹${balances.cash.toLocaleString()}` : "Cash Balance"}>
@@ -364,7 +387,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
-      {/* EXPORT BUTTONS */}
       <button onClick={() => setShowWhatsApp(true)} className={btnClass} title="WhatsApp">
         <MessageCircle size={iconSize} className="text-green-500 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>WhatsApp</span>
@@ -380,7 +402,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>PDF</span>
       </button>
 
-      <button onClick={() => alert("Word export requires .docx generation library. Please use PDF for now.")} className={btnClass} title="Word">
+      <button onClick={() => alert("Word export is in development.")} className={btnClass} title="Word">
         <FileEdit size={iconSize} className="text-blue-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Word</span>
       </button>
@@ -404,10 +426,8 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>Help</span>
       </button>
 
-
       {/* --- POPUPS --- */}
 
-      {/* 1. Select Period Popup */}
       {showPeriod && (
          <div className="absolute top-20 left-16 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 w-64 text-left">
              <div className="flex justify-between items-center mb-3">
@@ -433,17 +453,11 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                         className="w-full border border-slate-300 rounded p-1 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
                     />
                 </div>
-                <button 
-                    onClick={handlePeriodApply} 
-                    className="w-full bg-indigo-600 text-white rounded py-2 text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm"
-                >
-                    Apply Filter
-                </button>
+                <button onClick={handlePeriodApply} className="w-full bg-indigo-600 text-white rounded py-2 text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">Apply Filter</button>
             </div>
          </div>
       )}
 
-      {/* 2. Standard Descriptions Popup */}
       {showStdDesc && (
          <div className="absolute top-20 right-0 md:right-auto md:left-1/2 md:-translate-x-1/4 z-50 bg-white p-0 rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg text-left overflow-hidden">
              <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
@@ -461,11 +475,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                                  const uniqueId = `${category}-${idx}`;
                                  const isCopied = copiedDescIndex === uniqueId;
                                  return (
-                                     <div 
-                                        key={idx} 
-                                        onClick={() => handleCopyDesc(desc, uniqueId)}
-                                        className="group flex justify-between items-start gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer border border-transparent hover:border-slate-100 transition-all"
-                                     >
+                                     <div key={idx} onClick={() => handleCopyDesc(desc, uniqueId)} className="group flex justify-between items-start gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer border border-transparent hover:border-slate-100 transition-all">
                                          <p className="text-sm text-slate-700 leading-relaxed">{desc}</p>
                                          <button className={`shrink-0 p-1 rounded-md transition-colors ${isCopied ? 'text-green-600 bg-green-50' : 'text-slate-300 group-hover:text-indigo-600'}`}>
                                              {isCopied ? <Check size={14} /> : <Copy size={14} />}
@@ -477,13 +487,10 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                      </div>
                  ))}
              </div>
-             <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500">
-                 Click on any description to copy to clipboard
-             </div>
+             <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500">Click on any description to copy</div>
          </div>
       )}
 
-      {/* 3. Model Bye-Laws Popup */}
       {showByeLaws && (
          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm p-4">
              <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
@@ -495,7 +502,6 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                  </div>
                  
                  <div className="flex flex-1 overflow-hidden">
-                     {/* Sidebar Categories */}
                      <div className="w-1/3 bg-slate-50 border-r border-slate-200 overflow-y-auto p-2">
                          {IMPORTANT_BYE_LAWS.map((item, idx) => (
                              <button
@@ -512,57 +518,36 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                          ))}
                      </div>
                      
-                     {/* Content Area */}
                      <div className="flex-1 overflow-y-auto p-6 bg-white">
                          <h4 className="text-xl font-bold text-slate-800 mb-6 border-b pb-2">{selectedLawCategory}</h4>
                          <div className="space-y-6">
                              {IMPORTANT_BYE_LAWS.find(l => l.category === selectedLawCategory)?.rules.map((rule, idx) => (
                                  <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                     <h5 className="font-bold text-indigo-600 mb-2 flex items-center gap-2">
-                                         {rule.title}
-                                     </h5>
-                                     <p className="text-slate-700 text-sm leading-relaxed text-justify">
-                                         {rule.content}
-                                     </p>
+                                     <h5 className="font-bold text-indigo-600 mb-2 flex items-center gap-2">{rule.title}</h5>
+                                     <p className="text-slate-700 text-sm leading-relaxed text-justify">{rule.content}</p>
                                  </div>
                              ))}
                          </div>
                      </div>
                  </div>
-                 
-                 <div className="p-3 bg-slate-50 border-t border-slate-200 text-center text-xs text-slate-500 shrink-0">
-                     These are summarized extracts from standard Model Bye-laws. Refer to the official booklet for legal purposes.
-                 </div>
+                 <div className="p-3 bg-slate-50 border-t border-slate-100 text-center text-xs text-slate-500 shrink-0">Refer to the official booklet for legal purposes.</div>
              </div>
          </div>
       )}
 
-      {/* 4. Simple Calculator Popup */}
       {showCalculator && (
         <div className="absolute top-20 left-1/3 z-50 bg-slate-800 p-4 rounded-xl shadow-2xl text-white w-64 border border-slate-700">
-           <div className="flex justify-between mb-2">
-               <span className="font-bold">Calculator</span>
-               <button onClick={() => setShowCalculator(false)}><X size={16}/></button>
-           </div>
-           <div className="bg-slate-100 text-slate-900 p-2 mb-3 rounded text-right font-mono text-xl h-10 overflow-hidden">
-               {calcInput || '0'}
-           </div>
+           <div className="flex justify-between mb-2"><span className="font-bold">Calculator</span><button onClick={() => setShowCalculator(false)}><X size={16}/></button></div>
+           <div className="bg-slate-100 text-slate-900 p-2 mb-3 rounded text-right font-mono text-xl h-10 overflow-hidden">{calcInput || '0'}</div>
            <div className="grid grid-cols-4 gap-2">
                {['7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+'].map(k => (
-                   <button 
-                    key={k} 
-                    onClick={() => handleCalc(k)}
-                    className="bg-slate-600 hover:bg-slate-500 p-2 rounded text-lg font-bold transition-colors"
-                   >
-                       {k}
-                   </button>
+                   <button key={k} onClick={() => handleCalc(k)} className="bg-slate-600 hover:bg-slate-500 p-2 rounded text-lg font-bold transition-colors">{k}</button>
                ))}
                <button onClick={() => handleCalc('C')} className="col-span-4 bg-red-500 hover:bg-red-600 p-2 rounded font-bold mt-1 transition-colors">Clear</button>
            </div>
         </div>
       )}
 
-      {/* 5. Calendar Popup */}
       {showCalendar && (
         <div className="absolute top-20 left-1/3 ml-16 z-50 bg-white p-4 rounded-xl shadow-2xl border border-slate-200 w-80 text-slate-800">
            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
@@ -574,149 +559,59 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                </div>
            </div>
            <div className="grid grid-cols-7 gap-1 text-center mb-2">
-               {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-                   <div key={d} className="text-xs font-bold text-slate-400 uppercase">{d}</div>
-               ))}
+               {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (<div key={d} className="text-xs font-bold text-slate-400 uppercase">{d}</div>))}
            </div>
            <div className="grid grid-cols-7 gap-1 text-center">
                {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
                {Array.from({ length: days }).map((_, i) => {
                    const day = i + 1;
                    const isToday = new Date().getDate() === day && new Date().getMonth() === month && new Date().getFullYear() === year;
-                   return (
-                       <div key={day} className={`text-sm w-8 h-8 flex items-center justify-center rounded-full cursor-pointer hover:bg-indigo-50 transition-colors ${isToday ? 'bg-indigo-600 text-white font-bold shadow-md' : 'text-slate-700'}`}>
-                           {day}
-                       </div>
-                   )
+                   return (<div key={day} className={`text-sm w-8 h-8 flex items-center justify-center rounded-full cursor-pointer hover:bg-indigo-50 transition-colors ${isToday ? 'bg-indigo-600 text-white font-bold shadow-md' : 'text-slate-700'}`}>{day}</div>)
                })}
-           </div>
-           <div className="mt-4 text-center border-t border-slate-100 pt-3">
-               <button onClick={() => setCalDate(new Date())} className="text-xs text-indigo-600 font-bold hover:underline">Jump to Today</button>
            </div>
         </div>
       )}
 
-      {/* 6. Reminders Popup */}
       {showReminders && (
         <div className="absolute top-20 left-1/3 z-50 bg-white p-6 rounded-xl shadow-2xl border border-slate-200 w-80 text-left">
-           <div className="flex justify-between items-center mb-4 border-b pb-2">
-               <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                   <Bell size={18} className="text-amber-500" /> Reminders
-               </h4>
-               <button onClick={() => setShowReminders(false)}><X size={18} className="text-slate-400" /></button>
-           </div>
-           
+           <div className="flex justify-between items-center mb-4 border-b pb-2"><h4 className="font-bold text-slate-800 flex items-center gap-2"><Bell size={18} className="text-amber-500" /> Reminders</h4><button onClick={() => setShowReminders(false)}><X size={18} className="text-slate-400" /></button></div>
            <div className="flex gap-2 mb-4">
-               <input 
-                   type="text" 
-                   placeholder="Add new task..." 
-                   className="flex-1 border border-slate-300 rounded px-2 py-1 text-sm focus:outline-indigo-500"
-                   value={newReminder.text}
-                   onChange={e => setNewReminder({...newReminder, text: e.target.value})}
-               />
-               <button onClick={addReminder} className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700">
-                   <Plus size={18} />
-               </button>
+               <input type="text" placeholder="Add new task..." className="flex-1 border border-slate-300 rounded px-2 py-1 text-sm focus:outline-indigo-500" value={newReminder.text} onChange={e => setNewReminder({...newReminder, text: e.target.value})}/>
+               <button onClick={addReminder} className="bg-indigo-600 text-white p-1 rounded hover:bg-indigo-700"><Plus size={18} /></button>
            </div>
-
            <div className="space-y-2 max-h-48 overflow-y-auto">
-               {reminderList.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No pending reminders.</p>}
                {reminderList.map(r => (
                    <div key={r.id} className="flex justify-between items-center bg-slate-50 p-2 rounded text-sm group">
-                       <div>
-                           <p className="font-medium text-slate-700">{r.text}</p>
-                           {r.date && <p className="text-xs text-slate-400">{r.date}</p>}
-                       </div>
-                       <button onClick={() => deleteReminder(r.id)} className="text-slate-300 hover:text-red-500">
-                           <Trash2 size={14} />
-                       </button>
+                       <div><p className="font-medium text-slate-700">{r.text}</p>{r.date && <p className="text-xs text-slate-400">{r.date}</p>}</div>
+                       <button onClick={() => deleteReminder(r.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={14} /></button>
                    </div>
                ))}
            </div>
         </div>
       )}
 
-      {/* 7. WhatsApp Popup */}
-      {showWhatsApp && (
-         <div className="absolute top-20 right-20 z-50 bg-white p-6 rounded-xl shadow-2xl border border-slate-200 w-80 text-left">
-             <div className="flex justify-between items-center mb-4">
-                 <h4 className="font-bold text-green-600 flex items-center gap-2">
-                     <MessageCircle size={20} /> Share via WhatsApp
-                 </h4>
-                 <button onClick={() => setShowWhatsApp(false)}><X size={18} className="text-slate-400" /></button>
-             </div>
-             <div className="space-y-3">
-                 <div>
-                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Phone Number</label>
-                     <input 
-                        type="tel" 
-                        placeholder="e.g. 919876543210"
-                        className="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
-                        value={waNumber}
-                        onChange={e => setWaNumber(e.target.value)}
-                     />
-                 </div>
-                 <div>
-                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Message</label>
-                     <textarea 
-                        rows={3}
-                        className="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-green-500 outline-none"
-                        value={waMessage}
-                        onChange={e => setWaMessage(e.target.value)}
-                     />
-                 </div>
-                 <button 
-                    onClick={handleWhatsAppShare}
-                    className="w-full bg-green-500 text-white py-2 rounded font-bold hover:bg-green-600 flex items-center justify-center gap-2"
-                 >
-                     <Share2 size={16} /> Send Message
-                 </button>
-             </div>
-         </div>
-      )}
-
-       {/* 8. Tips of the Day Popup */}
-       {showTips && (
+      {showTips && (
           <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 bg-white p-0 rounded-xl shadow-2xl border border-amber-200 w-full max-w-md text-left overflow-hidden ring-4 ring-amber-50">
              <div className="bg-amber-100 p-4 flex justify-between items-center border-b border-amber-200">
-                 <h4 className="font-bold text-amber-900 flex items-center gap-2">
-                     <Lightbulb size={24} className="text-amber-600" fill="currentColor" /> 
-                     Tip of the Day
-                 </h4>
+                 <h4 className="font-bold text-amber-900 flex items-center gap-2"><Lightbulb size={24} className="text-amber-600" fill="currentColor" /> Tip of the Day</h4>
                  <button onClick={() => setShowTips(false)} className="text-amber-700 hover:text-amber-900"><X size={20}/></button>
              </div>
-             
              <div className="p-6 text-center">
                  <h5 className="text-lg font-bold text-slate-800 mb-2">{SOCIETY_TIPS[currentTipIndex].title}</h5>
-                 <p className="text-slate-600 text-sm leading-relaxed mb-6">
-                     {SOCIETY_TIPS[currentTipIndex].content}
-                 </p>
-                 
+                 <p className="text-slate-600 text-sm leading-relaxed mb-6">{SOCIETY_TIPS[currentTipIndex].content}</p>
                  <div className="flex justify-center gap-4">
-                     <button onClick={prevTip} className="p-2 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition-colors">
-                         <ChevronLeft size={20} />
-                     </button>
-                     <span className="text-xs font-bold text-slate-400 py-2">
-                         {currentTipIndex + 1} / {SOCIETY_TIPS.length}
-                     </span>
-                     <button onClick={nextTip} className="p-2 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition-colors">
-                         <ChevronRight size={20} />
-                     </button>
+                     <button onClick={prevTip} className="p-2 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition-colors"><ChevronLeft size={20} /></button>
+                     <span className="text-xs font-bold text-slate-400 py-2">{currentTipIndex + 1} / {SOCIETY_TIPS.length}</span>
+                     <button onClick={nextTip} className="p-2 rounded-full bg-slate-100 hover:bg-amber-100 text-slate-600 hover:text-amber-700 transition-colors"><ChevronRight size={20} /></button>
                  </div>
              </div>
           </div>
        )}
 
-      {/* 9. Help Popup */}
       {showHelp && (
          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 backdrop-blur-sm p-4">
              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
-                 <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
-                     <h3 className="text-lg font-bold flex items-center gap-2">
-                         <HelpCircle size={20} /> Help & Keyboard Shortcuts
-                     </h3>
-                     <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
-                 </div>
+                 <div className="bg-slate-900 text-white p-4 flex justify-between items-center"><h3 className="text-lg font-bold flex items-center gap-2"><HelpCircle size={20} /> Help & Keyboard Shortcuts</h3><button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white"><X size={20}/></button></div>
                  <div className="p-6 grid grid-cols-2 gap-8">
                      <div>
                          <h4 className="font-bold text-slate-800 mb-3 border-b pb-2">Toolbar Legend</h4>
@@ -724,35 +619,10 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
                              <li className="flex items-center gap-2"><Save size={16} className="text-green-600"/> Save current form / Add New</li>
                              <li className="flex items-center gap-2"><Edit3 size={16} className="text-blue-600"/> Modify settings or record</li>
                              <li className="flex items-center gap-2"><Search size={16} className="text-purple-600"/> Focus search bar</li>
-                             <li className="flex items-center gap-2"><CalendarRange size={16} className="text-violet-600"/> Filter by Date Range</li>
-                             <li className="flex items-center gap-2"><Scale size={16} className="text-pink-600"/> View Model Bye-Laws</li>
-                             <li className="flex items-center gap-2"><Lightbulb size={16} className="text-amber-500"/> Important Society Tips</li>
                          </ul>
                      </div>
-                     <div>
-                         <h4 className="font-bold text-slate-800 mb-3 border-b pb-2">Shortcuts & Tips</h4>
-                         <ul className="space-y-3 text-sm text-slate-600">
-                             <li className="flex items-start gap-2">
-                                 <Keyboard size={16} className="text-slate-400 mt-0.5"/>
-                                 <span>Use <strong>Tab</strong> to navigate fields.</span>
-                             </li>
-                             <li className="flex items-start gap-2">
-                                 <DownloadCloud size={16} className="text-slate-400 mt-0.5"/>
-                                 <span><strong>PDF</strong> button downloads the specific report for the current section.</span>
-                             </li>
-                             <li className="flex items-start gap-2">
-                                 <Printer size={16} className="text-slate-400 mt-0.5"/>
-                                 <span><strong>Print</strong> opens the browser print dialog for the whole page.</span>
-                             </li>
-                         </ul>
-                         <div className="mt-4 bg-yellow-50 p-3 rounded text-xs text-yellow-800 border border-yellow-200">
-                             <strong>Note:</strong> Word export feature is currently in development. Please use PDF export for formal documents.
-                         </div>
-                     </div>
                  </div>
-                 <div className="bg-slate-50 p-4 text-right">
-                     <button onClick={() => setShowHelp(false)} className="px-6 py-2 bg-slate-900 text-white rounded hover:bg-slate-800">Close</button>
-                 </div>
+                 <div className="bg-slate-50 p-4 text-right"><button onClick={() => setShowHelp(false)} className="px-6 py-2 bg-slate-900 text-white rounded hover:bg-slate-800">Close</button></div>
              </div>
          </div>
       )}
