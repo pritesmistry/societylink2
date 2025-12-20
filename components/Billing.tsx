@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -32,10 +32,14 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [previewBill, setPreviewBill] = useState<Bill | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<'TOP_BILL' | 'BILL_WITH_RECEIPT' | 'FOOTER_NOTES'>('TOP_BILL');
 
+  // Generation Modal State
+  const [generationMode, setGenerationMode] = useState<'INDIVIDUAL' | 'ALL'>('INDIVIDUAL');
+  const [billingFrequency, setBillingFrequency] = useState<'MONTHLY' | 'BI-MONTHLY' | 'QUARTERLY'>('MONTHLY');
   const [selectedResidentId, setSelectedResidentId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
   const [billingMonth, setBillingMonth] = useState(new Date().toISOString().slice(0, 7)); 
+  
   const [items, setItems] = useState<BillItem[]>([
     { id: '1', description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }
   ]);
@@ -85,7 +89,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     
     if (field === 'rate' || field === 'type') {
        const rate = Number(value) || 0;
-       item.amount = (item.type === 'SqFt' && resident) ? rate * resident.sqFt : rate;
+       // If bulk mode, we ignore per-resident SqFt in calculation here and do it during generation loop
+       item.amount = (item.type === 'SqFt' && resident && generationMode === 'INDIVIDUAL') ? rate * resident.sqFt : rate;
     }
     newItems[index] = item;
     setItems(newItems);
@@ -110,28 +115,49 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setCustomBillNotes([]);
       setBillDate(new Date().toISOString().split('T')[0]);
       setBillingMonth(new Date().toISOString().slice(0, 7));
+      setGenerationMode('INDIVIDUAL');
+      setBillingFrequency('MONTHLY');
       setIsModalOpen(true);
   };
 
-  const handleSingleGenerate = (e: React.FormEvent) => {
+  const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
-    const resident = residents.find(r => r.id === selectedResidentId);
-    if (resident && dueDate && billDate && totalAmount > 0) {
-      onGenerateBill({
-        id: `B${Date.now()}`,
-        societyId,
-        residentId: resident.id,
-        residentName: resident.name,
-        unitNumber: resident.unitNumber,
-        items: items,
-        interest: interest,
-        totalAmount: totalAmount,
-        dueDate: dueDate,
-        status: PaymentStatus.PENDING,
-        generatedDate: billDate,
-        billMonth: billingMonth,
-        customNotes: customBillNotes
+    
+    const targets = generationMode === 'ALL' ? residents : residents.filter(r => r.id === selectedResidentId);
+    
+    if (targets.length > 0 && dueDate && billDate) {
+      const generatedBills: Bill[] = targets.map(resident => {
+          // Re-calculate item amounts if they are SqFt based for this specific resident
+          const residentItems = items.map(item => ({
+              ...item,
+              amount: item.type === 'SqFt' ? item.rate * resident.sqFt : item.rate
+          }));
+          
+          const residentTotal = residentItems.reduce((sum, item) => sum + item.amount, 0) + interest;
+
+          return {
+            id: `B${Date.now()}-${resident.unitNumber}`,
+            societyId,
+            residentId: resident.id,
+            residentName: resident.name,
+            unitNumber: resident.unitNumber,
+            items: residentItems,
+            interest: interest,
+            totalAmount: residentTotal,
+            dueDate: dueDate,
+            status: PaymentStatus.PENDING,
+            generatedDate: billDate,
+            billMonth: billingMonth, // Month string stores the start month or selection
+            customNotes: [...customBillNotes, `Frequency: ${billingFrequency}`]
+          };
       });
+
+      if (generatedBills.length === 1) {
+          onGenerateBill(generatedBills[0]);
+      } else {
+          onBulkAddBills(generatedBills);
+      }
+      
       setIsModalOpen(false);
     }
   };
@@ -177,7 +203,18 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const formatBillingMonth = (monthStr?: string) => {
     if (!monthStr) return '';
     const date = new Date(monthStr + '-01');
-    return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+    
+    if (billingFrequency === 'MONTHLY') {
+        return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
+    } else if (billingFrequency === 'BI-MONTHLY') {
+        const endDate = new Date(date);
+        endDate.setMonth(endDate.getMonth() + 1);
+        return `${date.toLocaleDateString('default', { month: 'short' })} - ${endDate.toLocaleDateString('default', { month: 'short', year: 'numeric' })}`;
+    } else { // QUARTERLY
+        const endDate = new Date(date);
+        endDate.setMonth(endDate.getMonth() + 2);
+        return `${date.toLocaleDateString('default', { month: 'short' })} - ${endDate.toLocaleDateString('default', { month: 'short', year: 'numeric' })}`;
+    }
   };
 
   return (
@@ -457,57 +494,97 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-3xl shadow-2xl overflow-y-auto max-h-[90vh]">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Plus className="text-indigo-600" /> New Bill Generation</h2>
-            <form onSubmit={handleSingleGenerate} className="space-y-6">
-                <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase mb-2">Select Resident Member *</label>
-                    <select className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-slate-800" required value={selectedResidentId} onChange={e => handleResidentChange(e.target.value)}>
-                        <option value="">-- Choose Member --</option>
-                        {residents.map(r => <option key={r.id} value={r.id}>{r.unitNumber} - {r.name}</option>)}
-                    </select>
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Plus className="text-indigo-600" /> Bill Generation Wizard</h2>
+            
+            <form onSubmit={handleGenerate} className="space-y-6">
+                {/* RANGE SELECTION */}
+                <div className="bg-slate-50 p-1 rounded-xl flex gap-1 border border-slate-200">
+                    <button 
+                        type="button"
+                        onClick={() => setGenerationMode('INDIVIDUAL')}
+                        className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-bold transition-all ${generationMode === 'INDIVIDUAL' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}
+                    >
+                        <User size={16} /> Individual Member
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={() => setGenerationMode('ALL')}
+                        className={`flex-1 py-2 px-4 rounded-lg flex items-center justify-center gap-2 text-sm font-bold transition-all ${generationMode === 'ALL' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}
+                    >
+                        <Layers size={16} /> All Members ({residents.length})
+                    </button>
+                </div>
+
+                {generationMode === 'INDIVIDUAL' && (
+                    <div className="animate-fade-in">
+                        <label className="block text-xs font-black text-slate-400 uppercase mb-2">Select Resident Member *</label>
+                        <select className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-slate-800" required value={selectedResidentId} onChange={e => handleResidentChange(e.target.value)}>
+                            <option value="">-- Choose Member --</option>
+                            {residents.map(r => <option key={r.id} value={r.id}>{r.unitNumber} - {r.name}</option>)}
+                        </select>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase mb-2">Billing Cycle / Frequency</label>
+                        <select 
+                            className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-indigo-700"
+                            value={billingFrequency}
+                            onChange={(e) => setBillingFrequency(e.target.value as any)}
+                        >
+                            <option value="MONTHLY">Monthly</option>
+                            <option value="BI-MONTHLY">Bi-Monthly (2 Months)</option>
+                            <option value="QUARTERLY">Quarterly (3 Months)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase mb-2">Start Period / Month *</label>
+                        <input type="month" className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold" value={billingMonth} onChange={e => setBillingMonth(e.target.value)}/>
+                    </div>
                 </div>
                 
-                {/* DATES & PERIOD SECTION */}
-                <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <div>
-                        <label className="block text-xs font-black text-slate-400 uppercase mb-1">Bill For Month *</label>
-                        <input type="month" className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-indigo-700" value={billingMonth} onChange={e => setBillingMonth(e.target.value)}/>
-                        <p className="text-[10px] text-slate-400 mt-1 italic">Period coverage</p>
-                    </div>
+                {/* DATES SECTION */}
+                <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div>
                         <label className="block text-xs font-black text-slate-400 uppercase mb-1">Bill Issue Date *</label>
                         <input type="date" required className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold" value={billDate} onChange={e => setBillDate(e.target.value)}/>
-                        <p className="text-[10px] text-slate-400 mt-1 italic">Date of generation</p>
+                        <p className="text-[10px] text-slate-400 mt-1 italic">Date printed on invoice</p>
                     </div>
                     <div>
                         <label className="block text-xs font-black text-slate-400 uppercase mb-1">Due Date *</label>
                         <input type="date" required className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-red-600" value={dueDate} onChange={e => setDueDate(e.target.value)}/>
-                        <p className="text-[10px] text-slate-400 mt-1 italic">Late fee threshold</p>
+                        <p className="text-[10px] text-slate-400 mt-1 italic">Late fee applies after this</p>
                     </div>
                 </div>
                 
                 {/* Bill Items Section */}
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Bill Items</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
+                    <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Billing Heads (Auto-calculated)</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
                     {items.map((item, idx) => (
                         <div key={item.id} className="flex gap-2 items-center">
-                            <input type="text" placeholder="Description" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)}/>
+                            <input type="text" placeholder="Description (e.g. Water Charges)" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)}/>
+                            <select className="w-24 p-2 border border-slate-200 rounded-lg text-xs" value={item.type} onChange={e => handleItemChange(idx, 'type', e.target.value)}>
+                                <option value="Fixed">Fixed</option>
+                                <option value="SqFt">/ Sq.Ft</option>
+                            </select>
                             <input type="number" placeholder="Rate" className="w-24 p-2 border border-slate-200 rounded-lg text-sm" value={item.rate} onChange={e => handleItemChange(idx, 'rate', e.target.value)}/>
                             <button type="button" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
                         </div>
                     ))}
+                    <p className="text-[10px] text-slate-400">Note: 'Fixed' adds flat amount. '/ Sq.Ft' multiplies rate with member's unit size.</p>
                 </div>
 
                 {/* ADDITIONAL FOOTER SECTION */}
                 <div className="space-y-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
                     <div className="flex justify-between items-center">
-                        <h3 className="text-xs font-bold text-indigo-400 uppercase flex items-center gap-2"><MessageSquarePlus size={14} /> Additional Footer Notes</h3>
+                        <h3 className="text-xs font-bold text-indigo-400 uppercase flex items-center gap-2"><MessageSquarePlus size={14} /> Add Special Note to this Batch</h3>
                     </div>
                     <div className="flex gap-2">
                         <input 
                             type="text" 
                             className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" 
-                            placeholder="e.g. Please update your nomination form."
+                            placeholder="e.g. Happy New Year! Please pay via UPI."
                             value={noteInput}
                             onChange={(e) => setNoteInput(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomNote())}
@@ -526,11 +603,21 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     )}
                 </div>
 
-                <div className="flex justify-between items-center border-t pt-4">
-                    <span className="text-slate-500 font-bold">Total Bill: <span className="text-xl text-slate-900 ml-2">₹{totalAmount.toLocaleString()}</span></span>
+                <div className="flex justify-between items-center border-t pt-6">
+                    <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-400 uppercase">Estimated Total</span>
+                        <span className="text-xl text-slate-900 font-black">
+                            {generationMode === 'INDIVIDUAL' 
+                                ? `₹${totalAmount.toLocaleString()}` 
+                                : `Bulk Generation for ${residents.length} units`}
+                        </span>
+                    </div>
                     <div className="flex gap-3">
                         <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
-                        <button type="submit" className="px-8 py-2 bg-indigo-600 text-white rounded-lg font-black hover:bg-indigo-700 shadow-lg transition-all">Generate & Save</button>
+                        <button type="submit" className="px-10 py-3 bg-indigo-600 text-white rounded-xl font-black hover:bg-indigo-700 shadow-xl transition-all flex items-center gap-2">
+                            {generationMode === 'ALL' ? <Layers size={18} /> : <Save size={18} />}
+                            {generationMode === 'ALL' ? 'Process Bulk Generation' : 'Generate & Save Bill'}
+                        </button>
                     </div>
                 </div>
             </form>
