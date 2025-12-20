@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -41,18 +41,16 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   ]);
   const [interest, setInterest] = useState<number>(0);
   
-  const [selectedBillForPayment, setSelectedBillForPayment] = useState<Bill | null>(null);
-  const [paymentForm, setPaymentForm] = useState<PaymentDetails>({
-      date: new Date().toISOString().split('T')[0],
-      mode: 'UPI',
-      reference: '',
-      remarks: ''
-  });
+  // Custom Notes State for Generation
+  const [customBillNotes, setCustomBillNotes] = useState<string[]>([]);
+  const [noteInput, setNoteInput] = useState('');
+
+  // Settings State
+  const [tempFooterNote, setTempFooterNote] = useState(activeSociety.footerNote || '');
 
   const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0) + interest;
 
-  // Find the most recent paid bill for the resident in the preview
   const lastReceipt = useMemo(() => {
     if (!previewBill) return null;
     return bills
@@ -96,8 +94,20 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const addItem = () => setItems([...items, { id: Date.now().toString(), description: '', type: 'Fixed', rate: 0, amount: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
 
+  const handleAddCustomNote = () => {
+      if (noteInput.trim()) {
+          setCustomBillNotes([...customBillNotes, noteInput.trim()]);
+          setNoteInput('');
+      }
+  };
+
+  const removeCustomNote = (idx: number) => {
+      setCustomBillNotes(customBillNotes.filter((_, i) => i !== idx));
+  };
+
   const handleOpenGenerateModal = () => {
       setItems([{ id: Date.now().toString(), description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }]);
+      setCustomBillNotes([]);
       setIsModalOpen(true);
   };
 
@@ -117,7 +127,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         dueDate: dueDate,
         status: PaymentStatus.PENDING,
         generatedDate: billDate,
-        billMonth: billingMonth
+        billMonth: billingMonth,
+        customNotes: customBillNotes
       });
       setIsModalOpen(false);
     }
@@ -129,10 +140,23 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setIsPaymentModalOpen(true);
   };
 
+  const [selectedBillForPayment, setSelectedBillForPayment] = useState<Bill | null>(null);
+  const [paymentForm, setPaymentForm] = useState<PaymentDetails>({
+      date: new Date().toISOString().split('T')[0],
+      mode: 'UPI',
+      reference: '',
+      remarks: ''
+  });
+
   const handlePreview = (bill: Bill) => {
       setPreviewBill(bill);
       setPreviewTemplate('TOP_BILL');
       setIsPreviewOpen(true);
+  };
+
+  const handleSaveGlobalSettings = () => {
+      onUpdateSociety({ ...activeSociety, footerNote: tempFooterNote });
+      setIsSettingsOpen(false);
   };
 
   const downloadPDF = (elementId: string, filename: string) => {
@@ -156,7 +180,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <StandardToolbar onSave={handleOpenGenerateModal} balances={balances} />
+      <StandardToolbar 
+        onSave={handleOpenGenerateModal} 
+        onModify={() => { setTempFooterNote(activeSociety.footerNote || ''); setIsSettingsOpen(true); }}
+        balances={balances} 
+      />
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex gap-2">
@@ -172,9 +200,17 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             </button>
           ))}
         </div>
-        <button onClick={handleOpenGenerateModal} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm">
-          <Plus size={18} /> Generate Bill
-        </button>
+        <div className="flex gap-2">
+            <button 
+                onClick={() => { setTempFooterNote(activeSociety.footerNote || ''); setIsSettingsOpen(true); }}
+                className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-colors shadow-sm"
+            >
+                <Settings size={18} /> Global Settings
+            </button>
+            <button onClick={handleOpenGenerateModal} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm">
+            <Plus size={18} /> Generate Bill
+            </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -206,6 +242,35 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
           </div>
         ))}
       </div>
+
+      {/* --- SETTINGS MODAL --- */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl p-8 w-full max-w-xl shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold flex items-center gap-2 text-slate-800"><Settings className="text-indigo-600" /> Billing Settings</h2>
+                    <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600"><X /></button>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-2">Default Global Footer Note (Static)</label>
+                        <textarea 
+                            rows={4}
+                            className="w-full p-4 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm leading-relaxed"
+                            placeholder="This note will appear on every bill generated by the society."
+                            value={tempFooterNote}
+                            onChange={(e) => setTempFooterNote(e.target.value)}
+                        />
+                        <p className="text-xs text-slate-400 mt-2">Recommended for bank details, office hours, or general payment policy.</p>
+                    </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-8 border-t mt-8">
+                    <button onClick={() => setIsSettingsOpen(false)} className="px-6 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
+                    <button onClick={handleSaveGlobalSettings} className="px-8 py-2 bg-indigo-600 text-white rounded-lg font-black hover:bg-indigo-700 shadow-lg">Save Global Footer</button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* --- PREVIEW MODAL --- */}
       {isPreviewOpen && previewBill && (
@@ -300,16 +365,31 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     </div>
                 </div>
 
-                {/* --- OPTIONAL: FOOTER NOTES (Always at bottom of top section) --- */}
+                {/* --- OPTIONAL: FOOTER NOTES --- */}
                 <div className={`mt-10 border-t-2 border-dashed border-slate-200 pt-6 ${previewTemplate === 'FOOTER_NOTES' ? 'bg-slate-50 p-6 rounded-xl border-solid border-2 border-indigo-100' : ''}`}>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Important Notes</h4>
-                    <p className="text-xs text-slate-600 leading-relaxed italic">{activeSociety.footerNote || 'Thank you for your timely payment.'}</p>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Society Notes & Policy</h4>
+                    
+                    {/* Default Society Note */}
+                    <p className="text-xs text-slate-600 leading-relaxed italic whitespace-pre-wrap">{activeSociety.footerNote || 'Thank you for your timely payment.'}</p>
+                    
+                    {/* Custom Per-Bill Notes */}
+                    {previewBill.customNotes && previewBill.customNotes.length > 0 && (
+                        <div className="mt-4 space-y-1">
+                            {previewBill.customNotes.map((note, idx) => (
+                                <div key={idx} className="flex gap-2 text-xs font-bold text-indigo-700">
+                                    <span>•</span>
+                                    <span>{note}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {previewTemplate === 'FOOTER_NOTES' && (
-                        <div className="mt-4 grid grid-cols-2 gap-4 text-[10px] text-slate-500 uppercase font-bold">
-                            <p>* Interest of 21% p.a. charged on delays.</p>
-                            <p>* Non-occupancy charges apply as per bye-laws.</p>
-                            <p>* Do not dump debris in common areas.</p>
-                            <p>* Segregate wet and dry waste mandatory.</p>
+                        <div className="mt-6 grid grid-cols-2 gap-4 text-[9px] text-slate-500 uppercase font-black tracking-tight border-t pt-4">
+                            <p>* Interest of 21% p.a. charged on delays beyond due date.</p>
+                            <p>* Non-occupancy charges apply as per MCS Act bye-laws.</p>
+                            <p>* Illegal parking inside premises will be fined ₹500/day.</p>
+                            <p>* Garbage segregation (Wet/Dry) is mandatory for all units.</p>
                         </div>
                     )}
                 </div>
@@ -371,6 +451,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     <div><label className="block text-sm font-bold text-slate-700 mb-1">Billing Month</label><input type="month" className="w-full p-3 border border-slate-300 rounded-xl" value={billingMonth} onChange={e => setBillingMonth(e.target.value)}/></div>
                     <div><label className="block text-sm font-bold text-slate-700 mb-1">Due Date</label><input type="date" required className="w-full p-3 border border-slate-300 rounded-xl" value={dueDate} onChange={e => setDueDate(e.target.value)}/></div>
                 </div>
+                
+                {/* Bill Items Section */}
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Bill Items</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
                     {items.map((item, idx) => (
@@ -381,6 +463,35 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         </div>
                     ))}
                 </div>
+
+                {/* ADDITIONAL FOOTER SECTION */}
+                <div className="space-y-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-xs font-bold text-indigo-400 uppercase flex items-center gap-2"><MessageSquarePlus size={14} /> Additional Footer Notes</h3>
+                    </div>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" 
+                            placeholder="e.g. Please update your nomination form."
+                            value={noteInput}
+                            onChange={(e) => setNoteInput(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomNote())}
+                        />
+                        <button type="button" onClick={handleAddCustomNote} className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-indigo-700">Add</button>
+                    </div>
+                    {customBillNotes.length > 0 && (
+                        <div className="space-y-2 mt-2">
+                            {customBillNotes.map((note, i) => (
+                                <div key={i} className="bg-white px-3 py-1.5 rounded-lg border border-indigo-100 text-xs text-indigo-700 flex justify-between items-center group">
+                                    <span className="flex-1 truncate mr-2">{note}</span>
+                                    <button type="button" onClick={() => removeCustomNote(i)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 <div className="flex justify-between items-center border-t pt-4">
                     <span className="text-slate-500 font-bold">Total Bill: <span className="text-xl text-slate-900 ml-2">₹{totalAmount.toLocaleString()}</span></span>
                     <div className="flex gap-3">

@@ -95,6 +95,7 @@ export interface Bill {
   billMonth?: string;
   
   paymentDetails?: PaymentDetails;
+  customNotes?: string[]; // Added: Specific notes for this bill
 }
 
 export interface Expense {
@@ -106,7 +107,7 @@ export interface Expense {
   description: string;
   vendor: string;
   // Voucher Details
-  paymentMode?: 'Cash' | 'Cheque' | 'Online' | 'Journal';
+  paymentMode?: 'Cash' | 'Cheque' | 'Online' | 'Journal' | 'Debit Note' | 'Credit Note';
   referenceNo?: string; // Cheque No or Txn ID
   bankName?: string;
 }
