@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -40,8 +40,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
   const [billingMonth, setBillingMonth] = useState(new Date().toISOString().slice(0, 7)); 
   
+  // Interest States
+  const [applyInterest, setApplyInterest] = useState(false);
+  const [interestRate, setInterestRate] = useState(21); // Default 21% p.a.
+
   const [items, setItems] = useState<BillItem[]>([]);
-  const [interest, setInterest] = useState<number>(0);
   
   // Custom Notes State for Generation
   const [customBillNotes, setCustomBillNotes] = useState<string[]>([]);
@@ -52,7 +55,30 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [tempBillingHeads, setTempBillingHeads] = useState<BillItem[]>(activeSociety.billingHeads || []);
 
   const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
-  const totalAmount = items.reduce((sum, item) => sum + item.amount, 0) + interest;
+
+  // Helper to calculate arrears for a resident
+  const getResidentArrears = (residentId: string) => {
+    const resident = residents.find(r => r.id === residentId);
+    if (!resident) return 0;
+    const unpaidBillsAmount = bills
+      .filter(b => b.residentId === residentId && b.status !== PaymentStatus.PAID)
+      .reduce((sum, b) => sum + b.totalAmount, 0);
+    return resident.openingBalance + unpaidBillsAmount;
+  };
+
+  // Dynamic Interest Calculation for Individual Preview
+  const calculatedInterest = useMemo(() => {
+    if (!applyInterest || generationMode !== 'INDIVIDUAL' || !selectedResidentId) return 0;
+    const arrears = getResidentArrears(selectedResidentId);
+    if (arrears <= 0) return 0;
+    
+    // Formula: (Arrears * Rate / 100) / 12 (Monthly)
+    // Adjust divisor based on frequency
+    const divisor = billingFrequency === 'QUARTERLY' ? 4 : (billingFrequency === 'BI-MONTHLY' ? 6 : 12);
+    return (arrears * interestRate / 100) / divisor;
+  }, [applyInterest, generationMode, selectedResidentId, interestRate, billingFrequency]);
+
+  const totalAmount = items.reduce((sum, item) => sum + item.amount, 0) + calculatedInterest;
 
   const lastReceipt = useMemo(() => {
     if (!previewBill) return null;
@@ -75,9 +101,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     const resident = residents.find(r => r.id === residentId);
     if (!resident) return;
 
-    // Recalculate amounts based on selected resident for individual mode
     setItems(prev => prev.map(item => {
-        // Special case: Non-Occupancy Charges only apply to Tenants
         if (item.description.toLowerCase().includes('non-occupancy') && resident.occupancyType === 'Owner') {
             return { ...item, amount: 0 };
         }
@@ -116,7 +140,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   };
 
   const handleOpenGenerateModal = () => {
-      // Pre-populate from global society settings
       const defaults = activeSociety.billingHeads || [
           { id: '1', description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }
       ];
@@ -127,6 +150,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setBillingMonth(new Date().toISOString().slice(0, 7));
       setGenerationMode('INDIVIDUAL');
       setBillingFrequency('MONTHLY');
+      setApplyInterest(false);
       setIsModalOpen(true);
   };
 
@@ -137,9 +161,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     
     if (targets.length > 0 && dueDate && billDate) {
       const generatedBills: Bill[] = targets.map(resident => {
-          // Re-calculate item amounts if they are SqFt based for this specific resident
           const residentItems = items.map(item => {
-              // Rule: Non-occupancy charges only for Tenants
               if (item.description.toLowerCase().includes('non-occupancy') && resident.occupancyType === 'Owner') {
                   return { ...item, amount: 0 };
               }
@@ -147,9 +169,18 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                   ...item,
                   amount: item.type === 'SqFt' ? item.rate * resident.sqFt : item.rate
               };
-          }).filter(item => item.amount > 0); // Hide zero amount rows (like non-occupancy for owners)
+          }).filter(item => item.amount > 0);
           
-          const residentTotal = residentItems.reduce((sum, item) => sum + item.amount, 0) + interest;
+          let residentInterest = 0;
+          if (applyInterest) {
+              const arrears = getResidentArrears(resident.id);
+              if (arrears > 0) {
+                  const divisor = billingFrequency === 'QUARTERLY' ? 4 : (billingFrequency === 'BI-MONTHLY' ? 6 : 12);
+                  residentInterest = (arrears * interestRate / 100) / divisor;
+              }
+          }
+
+          const residentTotal = residentItems.reduce((sum, item) => sum + item.amount, 0) + residentInterest;
 
           return {
             id: `B${Date.now()}-${resident.unitNumber}`,
@@ -158,7 +189,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             residentName: resident.name,
             unitNumber: resident.unitNumber,
             items: residentItems,
-            interest: interest,
+            interest: residentInterest,
             totalAmount: residentTotal,
             dueDate: dueDate,
             status: PaymentStatus.PENDING,
@@ -315,6 +346,9 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                {bill.items.map((item, i) => (
                  <div key={i} className="flex justify-between"><span className="text-slate-500">{item.description}</span><span className="text-slate-800 font-medium">Rs. {item.amount.toLocaleString()}</span></div>
                ))}
+               {bill.interest > 0 && (
+                   <div className="flex justify-between text-red-600 font-medium"><span>Interest on Arrears</span><span>Rs. {bill.interest.toLocaleString()}</span></div>
+               )}
                <div className="flex justify-between font-bold border-t border-slate-100 pt-2 text-indigo-900"><span>Total Bill</span><span>Rs. {bill.totalAmount.toLocaleString()}</span></div>
             </div>
 
@@ -390,9 +424,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                     <button onClick={() => removeTempBillingHead(idx)} className="text-slate-300 hover:text-red-500 transition-colors p-1"><Trash2 size={18} /></button>
                                 </div>
                             ))}
-                            {tempBillingHeads.length === 0 && (
-                                <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">No default charges set.</div>
-                            )}
                         </div>
                         
                         <div className="mt-4 bg-amber-50 p-3 rounded-lg border border-amber-100 flex gap-2">
@@ -495,6 +526,12 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                     <td className="p-4 text-right font-semibold">Rs. {item.amount.toLocaleString()}</td>
                                 </tr>
                             ))}
+                            {previewBill.interest > 0 && (
+                                <tr className="hover:bg-red-50">
+                                    <td className="p-4 text-red-700 font-bold italic">Interest on Arrears (Default Charges)</td>
+                                    <td className="p-4 text-right font-bold text-red-700">Rs. {previewBill.interest.toLocaleString()}</td>
+                                </tr>
+                            )}
                         </tbody>
                         <tfoot>
                             <tr className="bg-indigo-50">
@@ -519,11 +556,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 {/* --- OPTIONAL: FOOTER NOTES --- */}
                 <div className={`mt-10 border-t-2 border-dashed border-slate-200 pt-6 ${previewTemplate === 'FOOTER_NOTES' ? 'bg-slate-50 p-6 rounded-xl border-solid border-2 border-indigo-100' : ''}`}>
                     <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Society Notes & Policy</h4>
-                    
-                    {/* Default Society Note */}
                     <p className="text-xs text-slate-600 leading-relaxed italic whitespace-pre-wrap">{activeSociety.footerNote || 'Thank you for your timely payment.'}</p>
-                    
-                    {/* Custom Per-Bill Notes */}
                     {previewBill.customNotes && previewBill.customNotes.length > 0 && (
                         <div className="mt-4 space-y-1">
                             {previewBill.customNotes.map((note, idx) => (
@@ -532,15 +565,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                     <span>{note}</span>
                                 </div>
                             ))}
-                        </div>
-                    )}
-
-                    {previewTemplate === 'FOOTER_NOTES' && (
-                        <div className="mt-6 grid grid-cols-2 gap-4 text-[9px] text-slate-500 uppercase font-black tracking-tight border-t pt-4">
-                            <p>* Interest of 21% p.a. charged on delays beyond due date.</p>
-                            <p>* Non-occupancy charges apply as per MCS Act bye-laws.</p>
-                            <p>* Illegal parking inside premises will be fined Rs. 500/day.</p>
-                            <p>* Garbage segregation (Wet/Dry) is mandatory for all units.</p>
                         </div>
                     )}
                 </div>
@@ -639,26 +663,63 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     </div>
                 </div>
                 
+                {/* INTEREST CALCULATION SECTION */}
+                <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                    <div className="flex justify-between items-center mb-4">
+                        <div className="flex items-center gap-2">
+                           <Percent size={20} className="text-red-600" />
+                           <h3 className="font-bold text-red-900">Interest Calculation on Arrears</h3>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-red-700 uppercase">Apply to this batch?</span>
+                            <button 
+                                type="button"
+                                onClick={() => setApplyInterest(!applyInterest)}
+                                className={`w-12 h-6 rounded-full transition-colors relative shadow-inner ${applyInterest ? 'bg-red-600' : 'bg-slate-300'}`}
+                            >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all ${applyInterest ? 'left-7' : 'left-1'}`}></div>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {applyInterest && (
+                        <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                            <div>
+                                <label className="block text-[10px] font-black text-red-400 uppercase mb-1">Interest Rate (% p.a.)</label>
+                                <input 
+                                    type="number" 
+                                    className="w-full p-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-400 outline-none font-bold text-red-700" 
+                                    value={interestRate} 
+                                    onChange={e => setInterestRate(Number(e.target.value))}
+                                />
+                            </div>
+                            <div className="flex flex-col justify-center">
+                                <p className="text-[10px] text-red-500 leading-tight">
+                                    Interest will be calculated on the member's total outstanding balance (Opening Bal + Unpaid Bills) up to the current date.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* DATES SECTION */}
                 <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div>
                         <label className="block text-xs font-black text-slate-400 uppercase mb-1">Bill Issue Date *</label>
                         <input type="date" required className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold" value={billDate} onChange={e => setBillDate(e.target.value)}/>
-                        <p className="text-[10px] text-slate-400 mt-1 italic">Date printed on invoice</p>
                     </div>
                     <div>
                         <label className="block text-xs font-black text-slate-400 uppercase mb-1">Due Date *</label>
                         <input type="date" required className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-red-600" value={dueDate} onChange={e => setDueDate(e.target.value)}/>
-                        <p className="text-[10px] text-slate-400 mt-1 italic">Late fee applies after this</p>
                     </div>
                 </div>
                 
                 {/* Bill Items Section */}
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Billing Heads (Auto-populated from Defaults)</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
+                    <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Billing Heads (Auto-populated)</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
                     {items.map((item, idx) => (
                         <div key={item.id} className="flex gap-2 items-center">
-                            <input type="text" placeholder="Description (e.g. Water Charges)" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm font-bold" value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)}/>
+                            <input type="text" placeholder="Description" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm font-bold" value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)}/>
                             <select className="w-24 p-2 border border-slate-200 rounded-lg text-xs" value={item.type} onChange={e => handleItemChange(idx, 'type', e.target.value)}>
                                 <option value="Fixed">Fixed</option>
                                 <option value="SqFt">/ Sq.Ft</option>
@@ -667,45 +728,21 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             <button type="button" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
                         </div>
                     ))}
-                    <p className="text-[10px] text-slate-400">Note: Use 'Global Settings' to change these defaults forever.</p>
-                </div>
-
-                {/* ADDITIONAL FOOTER SECTION */}
-                <div className="space-y-3 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-xs font-bold text-indigo-400 uppercase flex items-center gap-2"><MessageSquarePlus size={14} /> Add Special Note to this Batch</h3>
-                    </div>
-                    <div className="flex gap-2">
-                        <input 
-                            type="text" 
-                            className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" 
-                            placeholder="e.g. Happy New Year! Please pay via UPI."
-                            value={noteInput}
-                            onChange={(e) => setNoteInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomNote())}
-                        />
-                        <button type="button" onClick={handleAddCustomNote} className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-indigo-700">Add</button>
-                    </div>
-                    {customBillNotes.length > 0 && (
-                        <div className="space-y-2 mt-2">
-                            {customBillNotes.map((note, i) => (
-                                <div key={i} className="bg-white px-3 py-1.5 rounded-lg border border-indigo-100 text-xs text-indigo-700 flex justify-between items-center group">
-                                    <span className="flex-1 truncate mr-2">{note}</span>
-                                    <button type="button" onClick={() => removeCustomNote(i)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
 
                 <div className="flex justify-between items-center border-t pt-6">
                     <div className="flex flex-col">
                         <span className="text-xs font-bold text-slate-400 uppercase">Estimated Total</span>
-                        <span className="text-xl text-slate-900 font-black">
-                            {generationMode === 'INDIVIDUAL' 
-                                ? `Rs. ${totalAmount.toLocaleString()}` 
-                                : `Bulk Generation for ${residents.length} units`}
-                        </span>
+                        <div className="flex flex-col">
+                            <span className="text-xl text-slate-900 font-black">
+                                {generationMode === 'INDIVIDUAL' 
+                                    ? `Rs. ${totalAmount.toLocaleString()}` 
+                                    : `Bulk Generation Batch`}
+                            </span>
+                            {applyInterest && calculatedInterest > 0 && (
+                                <span className="text-xs text-red-600 font-bold">+ Rs. {calculatedInterest.toLocaleString()} Interest Included</span>
+                            )}
+                        </div>
                     </div>
                     <div className="flex gap-3">
                         <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
