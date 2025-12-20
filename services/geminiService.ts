@@ -23,8 +23,9 @@ export const generateNoticeDraft = async (topic: string, audience: string, tone:
   `;
 
   try {
+    // Fixed: Using the recommended gemini-3-flash-preview model for basic text generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
     return response.text || "Failed to generate content.";
@@ -56,8 +57,9 @@ export const analyzeFinancials = async (expenses: any[], bills: any[]): Promise<
   `;
 
   try {
+    // Fixed: Using the recommended gemini-3-flash-preview model for analysis tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
     return response.text || "No analysis generated.";
@@ -88,8 +90,9 @@ export const generateMinutesFromNotes = async (rawNotes: string): Promise<string
     `;
   
     try {
+      // Fixed: Using the recommended gemini-3-flash-preview model for minutes generation
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
       });
       return response.text || "Failed to generate minutes.";

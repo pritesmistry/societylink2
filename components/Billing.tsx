@@ -72,17 +72,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0) + interest;
 
-  const lastReceipt = useMemo(() => {
-      if (!previewBill) return null;
-      const paidBills = bills.filter(b => 
-          b.residentId === previewBill.residentId && 
-          b.status === PaymentStatus.PAID && 
-          b.id !== previewBill.id &&
-          b.paymentDetails
-      );
-      return paidBills.sort((a, b) => new Date(b.paymentDetails!.date).getTime() - new Date(a.paymentDetails!.date).getTime())[0];
-  }, [previewBill, bills]);
-
   const getStatusColor = (status: PaymentStatus) => {
     switch (status) {
       case PaymentStatus.PAID: return 'bg-green-100 text-green-700 border-green-200';
@@ -120,13 +109,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     recalculateItems(residentId, items, billingFrequency);
   };
 
-  const handleFrequencyChange = (newFreq: 'MONTHLY' | 'BI_MONTHLY' | 'QUARTERLY') => {
-    setBillingFrequency(newFreq);
-    if (generationMode === 'SINGLE') {
-         recalculateItems(selectedResidentId, items, newFreq);
-    }
-  };
-
   const handleItemChange = (index: number, field: keyof BillItem, value: any) => {
     const newItems = [...items];
     const item = { ...newItems[index], [field]: value };
@@ -151,15 +133,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const handleSaveSettings = () => {
       onUpdateSociety({ ...activeSociety, billLayout: settings });
       setIsSettingsOpen(false);
-  };
-
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => setSettings({...settings, logo: reader.result as string});
-          reader.readAsDataURL(file);
-      }
   };
 
   const handleOpenGenerateModal = () => {
@@ -209,173 +182,241 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       if (generationMode === 'SINGLE') handleSingleGenerate();
   };
 
+  const handlePaymentClick = (bill: Bill) => {
+      setSelectedBillForPayment(bill);
+      setPaymentForm({ date: new Date().toISOString().split('T')[0], mode: 'UPI', reference: '', remarks: '' });
+      // Fixed typo: Corrected setIsPaymentModal to setIsPaymentModalOpen
+      setIsPaymentModalOpen(true);
+  };
+
   const handlePreview = (bill: Bill) => {
       setPreviewBill(bill);
       setPreviewTemplate(activeSociety.billLayout?.template || 'MODERN');
       setIsPreviewOpen(true);
   };
 
-  const handleReceipt = (bill: Bill) => {
-      setPreviewBill(bill);
-      setIsReceiptOpen(true);
-  };
-
-  const handlePaymentClick = (bill: Bill) => {
-      setSelectedBillForPayment(bill);
-      setPaymentForm({ date: new Date().toISOString().split('T')[0], mode: 'UPI', reference: '', remarks: '' });
-      setIsPaymentModalOpen(true);
-  };
-
-  const submitPayment = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (selectedBillForPayment) {
-          onUpdateBill({ ...selectedBillForPayment, status: PaymentStatus.PAID, paymentDetails: paymentForm });
-          setIsPaymentModalOpen(false);
-          setSelectedBillForPayment(null);
-      }
-  };
-
-  const downloadPDF = (elementId: string, filename: string) => {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    element.classList.remove('shadow-2xl', 'border');
-    const opt = { margin: 0, filename: filename, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
-    window.html2pdf().set(opt).from(element).save().then(() => element.classList.add('shadow-2xl', 'border'));
-  };
-
-  const activeLayout = activeSociety.billLayout || defaultLayout;
-  const formatBillingMonth = (monthStr?: string) => {
-    if (!monthStr) return '';
-    const date = new Date(monthStr + '-01');
-    return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
-        onNew={handleOpenGenerateModal}
         onSave={handleOpenGenerateModal}
-        onModify={() => setIsSettingsOpen(true)}
         balances={balances}
       />
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex gap-2">
-          {['All', PaymentStatus.PAID, PaymentStatus.PENDING, PaymentStatus.OVERDUE].map(s => (
-            <button key={s} onClick={() => setFilter(s as any)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === s ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}`}>{s}</button>
+          {['All', PaymentStatus.PENDING, PaymentStatus.PAID, PaymentStatus.OVERDUE].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s as any)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                filter === s ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {s}
+            </button>
           ))}
         </div>
-        <div className="flex gap-2">
-            <button onClick={() => setIsSettingsOpen(true)} className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-50 shadow-sm"><Settings size={18} /> Settings</button>
-            <button onClick={handleOpenGenerateModal} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-sm"><Plus size={18} /> Generate New Bill</button>
-        </div>
+        <button 
+          onClick={handleOpenGenerateModal}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm"
+        >
+          <Plus size={18} /> Generate Bill
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Bill ID</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Unit / Member</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Amount</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">For Month</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Due Date</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm">Status</th>
-                <th className="p-4 font-semibold text-slate-600 text-sm text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredBills.map(bill => (
-                <tr key={bill.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-4 text-sm text-slate-500 font-mono">{bill.id}</td>
-                  <td className="p-4"><div className="font-medium text-slate-800">{bill.unitNumber}</div><div className="text-xs text-slate-500">{bill.residentName}</div></td>
-                  <td className="p-4 font-bold text-slate-800 text-lg">₹{bill.totalAmount.toFixed(2)}</td>
-                  <td className="p-4 text-sm text-slate-600">{bill.billMonth ? formatBillingMonth(bill.billMonth) : bill.generatedDate}</td>
-                  <td className="p-4 text-sm text-slate-600">{bill.dueDate}</td>
-                  <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(bill.status)}`}>{bill.status}</span></td>
-                  <td className="p-4 text-right">
-                      <div className="flex justify-end gap-1">
-                          <button onClick={() => handlePreview(bill)} className="text-teal-600 hover:text-teal-800 hover:bg-teal-50 p-2 rounded-full" title="Preview"><Eye size={20} /></button>
-                          <button onClick={() => handlePreview(bill)} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-full" title="Download"><FileDown size={20} /></button>
-                          {bill.status === PaymentStatus.PAID ? (<button onClick={() => handleReceipt(bill)} className="text-green-600 hover:text-green-800 hover:bg-green-50 p-2 rounded-full"><Receipt size={20} /></button>) : (<><button onClick={() => handlePaymentClick(bill)} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-full"><CreditCard size={20} /></button></>)}
-                      </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {isPreviewOpen && previewBill && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] backdrop-blur-sm p-4 overflow-y-auto">
-              <div className="relative w-full max-w-4xl flex flex-col items-center">
-                  <div className="flex gap-4 mb-4 items-center">
-                      <select className="bg-white text-slate-800 px-4 py-2 rounded-lg font-medium shadow-lg outline-none" value={previewTemplate} onChange={(e) => setPreviewTemplate(e.target.value as any)}>
-                          <option value="MODERN">Modern (Color)</option>
-                          <option value="CLASSIC">Classic (Formal)</option>
-                          <option value="MINIMAL">Minimal (Eco)</option>
-                          <option value="SPLIT_RECEIPT">Bill + Prev. Receipt</option>
-                      </select>
-                      <button onClick={() => downloadPDF('invoice-preview', `Invoice_${previewBill?.id}.pdf`)} className="bg-white text-indigo-600 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-indigo-50 flex items-center gap-2"><Download size={20} /> Download PDF</button>
-                      <button onClick={() => setIsPreviewOpen(false)} className="bg-slate-800 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-slate-900 flex items-center gap-2" title="Close Preview"><X size={18} /> Cancel</button>
-                  </div>
-                  <div id="invoice-preview" className="bg-white w-[210mm] min-h-[297mm] p-[10mm] shadow-2xl mx-auto text-slate-800 relative flex flex-col">
-                      <div className="flex justify-between items-start mb-6 border-b-2 pb-6" style={{ borderColor: activeLayout.colorTheme }}>
-                          <div>
-                              {activeLayout.logo ? <img src={activeLayout.logo} className="h-20 w-auto mb-3" /> : activeLayout.showLogoPlaceholder && <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center mb-3 text-2xl font-bold">{activeSociety.name.substring(0,2).toUpperCase()}</div>}
-                              <h1 className="text-2xl font-bold">{activeSociety.name}</h1>
-                              {activeLayout.showSocietyAddress && <p className="text-sm text-slate-500 mt-1 max-w-sm">{activeSociety.address}</p>}
-                          </div>
-                          <div className="text-right">
-                              <h2 className="text-3xl font-black" style={{ color: activeLayout.colorTheme }}>{activeLayout.title}</h2>
-                              <p className="mt-4 text-sm">Invoice # <span className="font-bold">{previewBill.id}</span></p>
-                              <p className="text-sm">Date: <span className="font-bold">{previewBill.generatedDate}</span></p>
-                          </div>
-                      </div>
-                      <div className="mb-6">
-                        <p className="text-xs font-bold text-slate-400 uppercase mb-1">Bill To</p>
-                        <h3 className="text-xl font-bold">{previewBill.residentName}</h3>
-                        <p>Unit: <span className="font-semibold">{previewBill.unitNumber}</span></p>
-                      </div>
-                      <table className="w-full mb-8">
-                          <thead>
-                              <tr style={{ backgroundColor: activeLayout.colorTheme, color: 'white' }}>
-                                  <th className="p-3 text-left">Description</th>
-                                  <th className="p-3 text-right">Amount</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                              {previewBill.items.map((item, idx) => (
-                                  <tr key={idx}><td className="p-3">{item.description}</td><td className="p-3 text-right">₹{item.amount.toFixed(2)}</td></tr>
-                              ))}
-                          </tbody>
-                      </table>
-                      <div className="flex justify-end mb-8"><div className="w-1/2 flex justify-between text-xl font-bold border-t pt-2"><span>Total Due</span><span>₹{previewBill.totalAmount.toFixed(2)}</span></div></div>
-                      <div className="mt-auto border-t pt-6 grid grid-cols-2 gap-8">
-                          <div><h4 className="font-bold text-sm mb-2">Bank Details</h4><p className="text-sm text-slate-500 whitespace-pre-line">{activeSociety.bankDetails}</p></div>
-                          <div className="text-right flex flex-col justify-end"><p className="text-sm font-semibold">Authorized Signatory</p></div>
-                      </div>
-                  </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredBills.map(bill => (
+          <div key={bill.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <span className="text-xs font-mono text-slate-400">{bill.id}</span>
+                <h3 className="font-bold text-slate-800">{bill.unitNumber} - {bill.residentName}</h3>
               </div>
+              <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(bill.status)}`}>
+                {bill.status}
+              </span>
+            </div>
+            
+            <div className="space-y-2 mb-4 text-sm">
+               {bill.items.map((item, i) => (
+                 <div key={i} className="flex justify-between">
+                   <span className="text-slate-500">{item.description}</span>
+                   <span className="text-slate-800 font-medium">₹{item.amount.toLocaleString()}</span>
+                 </div>
+               ))}
+               {bill.interest > 0 && (
+                  <div className="flex justify-between text-red-500 font-medium">
+                    <span>Late Interest</span>
+                    <span>₹{bill.interest.toLocaleString()}</span>
+                  </div>
+               )}
+            </div>
+            
+            <div className="border-t border-slate-100 pt-3 flex justify-between items-center">
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Due Date</p>
+                <p className="text-sm font-semibold text-slate-700">{bill.dueDate}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total Amount</p>
+                <p className="text-lg font-bold text-slate-900">₹{bill.totalAmount.toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+               {bill.status !== PaymentStatus.PAID ? (
+                  <button 
+                    onClick={() => handlePaymentClick(bill)}
+                    className="flex-1 bg-slate-800 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-sm"
+                  >
+                    <CreditCard size={14} /> Record Payment
+                  </button>
+               ) : (
+                  <button 
+                    onClick={() => handlePreview(bill)}
+                    className="flex-1 bg-green-50 text-green-700 border border-green-200 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"
+                  >
+                    <Receipt size={14} /> View Receipt
+                  </button>
+               )}
+               <button 
+                onClick={() => handlePreview(bill)}
+                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                title="Preview Bill"
+               >
+                 <Eye size={18} />
+               </button>
+            </div>
           </div>
-      )}
+        ))}
+        {filteredBills.length === 0 && (
+            <div className="col-span-full py-20 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-white/50">
+                <FileText size={48} className="mx-auto mb-3 opacity-20" />
+                <p className="font-medium">No bills found for the selected filter.</p>
+            </div>
+        )}
+      </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm overflow-y-auto py-10">
-          <div className="bg-white rounded-xl p-8 w-full max-w-4xl shadow-2xl my-auto">
-            <h2 className="text-2xl font-bold mb-6">Generate Bill</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <select className="w-full p-3 border rounded-lg" required value={selectedResidentId} onChange={e => handleResidentChange(e.target.value)}>
-                <option value="">-- Select Member --</option>
-                {residents.map(r => <option key={r.id} value={r.id}>{r.unitNumber} - {r.name}</option>)}
-              </select>
-              <div className="grid grid-cols-2 gap-6">
-                  <input type="month" required className="p-3 border rounded-lg" value={billingMonth} onChange={e => setBillingMonth(e.target.value)}/>
-                  <input type="date" required className="p-3 border rounded-lg" value={dueDate} onChange={e => setDueDate(e.target.value)}/>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in duration-200">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Plus className="text-indigo-600" /> Generate Maintenance Bill</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Select Resident *</label>
+                <select 
+                  className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                  required
+                  value={selectedResidentId}
+                  onChange={e => handleResidentChange(e.target.value)}
+                >
+                  <option value="">-- Choose Resident --</option>
+                  {residents.map(r => <option key={r.id} value={r.id}>{r.unitNumber} - {r.name}</option>)}
+                </select>
               </div>
-              <div className="flex justify-end gap-4"><button type="button" onClick={closeModal} className="px-6 py-3 border rounded-lg">Cancel</button><button type="submit" className="px-6 py-3 bg-indigo-600 text-white rounded-lg">Generate</button></div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Bill Date *</label>
+                  <input type="date" required className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" value={billDate} onChange={e => setBillDate(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">Due Date *</label>
+                  <input type="date" required className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center px-1">
+                  <h3 className="font-bold text-xs uppercase text-slate-500 tracking-wider">Bill Components</h3>
+                  <button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold hover:underline flex items-center gap-1">
+                    <Plus size={12} /> Add Row
+                  </button>
+                </div>
+                {items.map((item, index) => (
+                  <div key={item.id} className="grid grid-cols-12 gap-3 items-end bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <div className="col-span-5">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase mb-1 block">Description</label>
+                      <input type="text" placeholder="e.g. Water Charges" className="w-full p-1.5 text-sm border-b border-slate-200 focus:border-indigo-500 outline-none bg-transparent" value={item.description} onChange={e => handleItemChange(index, 'description', e.target.value)} />
+                    </div>
+                    <div className="col-span-3">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase mb-1 block">Type</label>
+                      <select className="w-full p-1.5 text-xs border-b border-slate-200 bg-transparent focus:border-indigo-500 outline-none" value={item.type} onChange={e => handleItemChange(index, 'type', e.target.value)}>
+                        <option value="Fixed">Fixed</option>
+                        <option value="SqFt">Per SqFt</option>
+                      </select>
+                    </div>
+                    <div className="col-span-3">
+                      <label className="text-[10px] text-slate-400 font-bold uppercase mb-1 block">Rate (₹)</label>
+                      <input type="number" placeholder="0.00" className="w-full p-1.5 text-sm border-b border-slate-200 focus:border-indigo-500 outline-none bg-transparent" value={item.rate} onChange={e => handleItemChange(index, 'rate', e.target.value)} />
+                    </div>
+                    <div className="col-span-1 text-right">
+                      <button type="button" onClick={() => removeItem(index)} className="text-slate-300 hover:text-red-500 p-1 transition-colors"><X size={16} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-between items-center pt-4 border-t border-slate-100">
+                <div className="text-slate-500 font-bold text-sm">
+                   Grand Total: <span className="text-slate-900 text-lg ml-2">₹{totalAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex gap-3">
+                    <button type="button" onClick={closeModal} className="px-5 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg transition-colors">Cancel</button>
+                    <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 shadow-md transition-all">Generate & Save</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isPaymentModalOpen && selectedBillForPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+            <h2 className="text-xl font-bold mb-2 flex items-center gap-2"><CreditCard className="text-green-600" /> Record Payment</h2>
+            <p className="text-sm text-slate-500 mb-6 border-b border-slate-100 pb-2">
+                Settling dues for <span className="font-bold text-slate-800">{selectedBillForPayment.unitNumber} - {selectedBillForPayment.residentName}</span>
+            </p>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              onUpdateBill({...selectedBillForPayment, status: PaymentStatus.PAID, paymentDetails: paymentForm});
+              setIsPaymentModalOpen(false);
+            }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Payment Mode *</label>
+                <select className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" value={paymentForm.mode} onChange={e => setPaymentForm({...paymentForm, mode: e.target.value as any})}>
+                  <option value="UPI">UPI / Digital Transfer</option>
+                  <option value="Cash">Cash Payment</option>
+                  <option value="Cheque">Cheque Deposit</option>
+                  <option value="Bank Transfer">NEFT / RTGS</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Reference No / Txn ID *</label>
+                <input 
+                    type="text" 
+                    required
+                    className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                    placeholder="e.g. UPI-123456 or Cheque No." 
+                    value={paymentForm.reference} 
+                    onChange={e => setPaymentForm({...paymentForm, reference: e.target.value})} 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-1">Remarks</label>
+                <textarea 
+                    className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" 
+                    rows={2}
+                    placeholder="Additional notes..."
+                    value={paymentForm.remarks} 
+                    onChange={e => setPaymentForm({...paymentForm, remarks: e.target.value})} 
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="px-5 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
+                <button type="submit" className="px-6 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg transition-all">Confirm & Close</button>
+              </div>
             </form>
           </div>
         </div>
