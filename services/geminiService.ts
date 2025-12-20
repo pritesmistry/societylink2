@@ -3,46 +3,72 @@ import { GoogleGenAI } from "@google/genai";
 
 /**
  * Generates a formal housing society notice using Gemini 3 Flash.
- * Adheres to direct API key usage and latest response property patterns.
  */
 export const generateNoticeDraft = async (topic: string, audience: string, tone: string): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const prompt = `
-      You are an expert Society Secretary and Communications Manager for a high-end residential complex.
-      Write a formal notice based on the following:
-      
+      You are an expert Society Secretary. Write a formal notice based on:
       TOPIC: ${topic}
       TARGET AUDIENCE: ${audience}
       TONE: ${tone}
       
-      Requirements:
-      1. Use professional English.
-      2. Include placeholders like [Date], [Time], and [Venue] where appropriate.
-      3. Structure with a clear Subject line at the top.
-      4. Keep it concise yet comprehensive.
-      5. End with a standard "By Order of Managing Committee" signature block.
-      
-      Return ONLY the notice text. Do not include markdown code blocks.
+      Requirements: Professional structure, clear Subject, standard placeholders, and formal signature block.
+      Return ONLY the notice text.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
+    });
+
+    return response.text || "Failed to generate notice.";
+  } catch (error) {
+    console.error("Error in generateNoticeDraft:", error);
+    return "An error occurred while generating the notice.";
+  }
+};
+
+/**
+ * Generates a full draft of meeting minutes based on a topic, audience, and tone.
+ */
+export const generateMinutesDraft = async (topic: string, audience: string, tone: string): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    const prompt = `
+      You are an expert Housing Society Administrator. Write formal Meeting Minutes for a housing society based on:
+      MEETING TOPIC/MAIN AGENDA: ${topic}
+      PARTICIPANTS (AUDIENCE): ${audience}
+      TONE OF MINUTES: ${tone}
+      
+      Requirements:
+      1. Structure the output into clearly labeled sections: [TITLE], [AGENDA], [DISCUSSION], and [ACTION ITEMS].
+      2. Ensure the tone matches ${tone} (e.g., Professional, Strict, Neutral).
+      3. Use formal "third-person" language (e.g., "The Committee resolved...", "Members discussed...").
+      4. Include standard meeting components like confirming previous minutes.
+      5. Do not use markdown code blocks; return plain text with clear headings.
+      
+      Return the content in this EXACT format:
+      [TITLE] ...
+      [AGENDA] ...
+      [DISCUSSION] ...
+      [ACTION ITEMS] ...
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
       config: {
         temperature: 0.7,
-        topP: 0.95,
       }
     });
 
-    return response.text || "Failed to generate a notice draft. Please try again.";
+    return response.text || "Failed to generate minutes draft.";
   } catch (error) {
-    console.error("Error in generateNoticeDraft:", error);
-    if (error instanceof Error && error.message.includes("API key")) {
-      return "Error: API Key is missing or invalid. Please check your environment.";
-    }
-    return "An error occurred while generating the notice. Please check your connection.";
+    console.error("Error in generateMinutesDraft:", error);
+    return "Error generating minutes.";
   }
 };
 
@@ -59,14 +85,7 @@ export const analyzeFinancials = async (expenses: any[], bills: any[]): Promise<
       Analyze this housing society financial data:
       Expenses: ${expenseSummary}
       Billing: ${billSummary}
-
-      Provide:
-      1. A summary of the current financial state.
-      2. Identification of the highest spending categories.
-      3. Collection efficiency insights.
-      4. Three actionable suggestions to reduce costs or increase reserves.
-      
-      Format with professional markdown.
+      Provide summary, high spending areas, and 3 actionable suggestions.
     `;
 
     const response = await ai.models.generateContent({
@@ -77,7 +96,7 @@ export const analyzeFinancials = async (expenses: any[], bills: any[]): Promise<
     return response.text || "Financial analysis unavailable.";
   } catch (error) {
     console.error("Error in analyzeFinancials:", error);
-    return "Could not perform financial analysis at this time.";
+    return "Could not perform financial analysis.";
   }
 };
 
@@ -90,14 +109,7 @@ export const generateMinutesFromNotes = async (rawNotes: string): Promise<string
       const prompt = `
         Convert these raw meeting notes into formal Housing Society Meeting Minutes:
         "${rawNotes}"
-
-        Structure:
-        - Agenda
-        - Major Discussion Points
-        - Resolutions Passed
-        - Action Items (Owner & Due Date)
-        
-        Tone: Formal and objective.
+        Structure: Agenda, Discussion, Resolutions, Action Items.
       `;
 
       const response = await ai.models.generateContent({
