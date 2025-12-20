@@ -356,14 +356,14 @@ const App: React.FC = () => {
                     <Wallet size={18} className="text-green-600" />
                     <div>
                         <p className="text-[10px] text-green-700 font-bold uppercase">Cash Bal</p>
-                        <p className="text-sm font-bold text-slate-800">₹{financialBalances.cash.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-slate-800">Rs. {financialBalances.cash.toLocaleString()}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-100" title="Bank Balance">
                     <Landmark size={18} className="text-blue-600" />
                     <div>
                         <p className="text-[10px] text-blue-700 font-bold uppercase">Bank Bal</p>
-                        <p className="text-sm font-bold text-slate-800">₹{financialBalances.bank.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-slate-800">Rs. {financialBalances.bank.toLocaleString()}</p>
                     </div>
                 </div>
             </div>

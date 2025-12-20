@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -271,9 +271,9 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             
             <div className="space-y-2 mb-4 text-sm mt-4 border-t border-slate-50 pt-4">
                {bill.items.map((item, i) => (
-                 <div key={i} className="flex justify-between"><span className="text-slate-500">{item.description}</span><span className="text-slate-800 font-medium">₹{item.amount.toLocaleString()}</span></div>
+                 <div key={i} className="flex justify-between"><span className="text-slate-500">{item.description}</span><span className="text-slate-800 font-medium">Rs. {item.amount.toLocaleString()}</span></div>
                ))}
-               <div className="flex justify-between font-bold border-t border-slate-100 pt-2 text-indigo-900"><span>Total Bill</span><span>₹{bill.totalAmount.toLocaleString()}</span></div>
+               <div className="flex justify-between font-bold border-t border-slate-100 pt-2 text-indigo-900"><span>Total Bill</span><span>Rs. {bill.totalAmount.toLocaleString()}</span></div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 font-bold uppercase mb-4 px-1">
@@ -390,21 +390,21 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         <thead>
                             <tr className="bg-slate-900 text-white">
                                 <th className="p-3 text-left rounded-tl-lg">Description</th>
-                                <th className="p-3 text-right">Amount (₹)</th>
+                                <th className="p-3 text-right">Amount (Rs.)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {previewBill.items.map((item, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50">
                                     <td className="p-4">{item.description}</td>
-                                    <td className="p-4 text-right font-semibold">₹{item.amount.toLocaleString()}</td>
+                                    <td className="p-4 text-right font-semibold">Rs. {item.amount.toLocaleString()}</td>
                                 </tr>
                             ))}
                         </tbody>
                         <tfoot>
                             <tr className="bg-indigo-50">
                                 <td className="p-4 text-right font-black uppercase text-indigo-900">Grand Total</td>
-                                <td className="p-4 text-right font-black text-xl text-indigo-900 border-l-2 border-white">₹{previewBill.totalAmount.toLocaleString()}</td>
+                                <td className="p-4 text-right font-black text-xl text-indigo-900 border-l-2 border-white">Rs. {previewBill.totalAmount.toLocaleString()}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -444,7 +444,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         <div className="mt-6 grid grid-cols-2 gap-4 text-[9px] text-slate-500 uppercase font-black tracking-tight border-t pt-4">
                             <p>* Interest of 21% p.a. charged on delays beyond due date.</p>
                             <p>* Non-occupancy charges apply as per MCS Act bye-laws.</p>
-                            <p>* Illegal parking inside premises will be fined ₹500/day.</p>
+                            <p>* Illegal parking inside premises will be fined Rs. 500/day.</p>
                             <p>* Garbage segregation (Wet/Dry) is mandatory for all units.</p>
                         </div>
                     )}
@@ -471,7 +471,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                 <p className="text-lg leading-loose italic text-slate-700">
                                     Received with thanks from <span className="font-black border-b border-dotted border-slate-400 px-2">{lastReceipt.residentName}</span>, 
                                     Unit <span className="font-black border-b border-dotted border-slate-400 px-2">{lastReceipt.unitNumber}</span>, 
-                                    a sum of <span className="font-black border-b border-dotted border-slate-400 px-2">₹ {lastReceipt.totalAmount.toLocaleString()} /-</span> 
+                                    a sum of <span className="font-black border-b border-dotted border-slate-400 px-2">Rs. {lastReceipt.totalAmount.toLocaleString()} /-</span> 
                                     towards maintenance dues for {lastReceipt.billMonth ? formatBillingMonth(lastReceipt.billMonth) : 'Previous Period'}.
                                 </p>
                                 <div className="mt-6 text-right">
@@ -608,7 +608,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         <span className="text-xs font-bold text-slate-400 uppercase">Estimated Total</span>
                         <span className="text-xl text-slate-900 font-black">
                             {generationMode === 'INDIVIDUAL' 
-                                ? `₹${totalAmount.toLocaleString()}` 
+                                ? `Rs. ${totalAmount.toLocaleString()}` 
                                 : `Bulk Generation for ${residents.length} units`}
                         </span>
                     </div>

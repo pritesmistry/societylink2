@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell 
 } from 'recharts';
 import { Bill, Expense, PaymentStatus } from '../types';
-import { DollarSign, Users, AlertCircle, TrendingUp } from 'lucide-react';
+import { IndianRupee, Users, AlertCircle, TrendingUp } from 'lucide-react';
 
 interface DashboardProps {
   bills: Bill[];
@@ -46,11 +46,11 @@ const Dashboard: React.FC<DashboardProps> = ({ bills, expenses, residentCount })
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex items-center">
           <div className="p-3 bg-green-100 rounded-full text-green-600 mr-4">
-            <span className="font-bold text-xl">₹</span>
+            <span className="font-bold text-lg">Rs.</span>
           </div>
           <div>
             <p className="text-sm text-slate-500">Collected Revenue</p>
-            <h3 className="text-2xl font-bold text-slate-800">₹{stats.totalCollected.toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-800">Rs. {stats.totalCollected.toLocaleString()}</h3>
           </div>
         </div>
 
@@ -60,7 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bills, expenses, residentCount })
           </div>
           <div>
             <p className="text-sm text-slate-500">Pending Dues</p>
-            <h3 className="text-2xl font-bold text-slate-800">₹{stats.totalPending.toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-800">Rs. {stats.totalPending.toLocaleString()}</h3>
           </div>
         </div>
 
@@ -70,7 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bills, expenses, residentCount })
           </div>
           <div>
             <p className="text-sm text-slate-500">Total Expenses</p>
-            <h3 className="text-2xl font-bold text-slate-800">₹{stats.totalExpenses.toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-800">Rs. {stats.totalExpenses.toLocaleString()}</h3>
           </div>
         </div>
 
@@ -105,7 +105,7 @@ const Dashboard: React.FC<DashboardProps> = ({ bills, expenses, residentCount })
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `₹${value}`} />
+                <Tooltip formatter={(value) => `Rs. ${value}`} />
               </PieChart>
             </ResponsiveContainer>
           </div>

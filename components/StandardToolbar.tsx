@@ -110,9 +110,9 @@ const IMPORTANT_BYE_LAWS = [
     {
         category: "VII. Transfer of Shares & Interest",
         rules: [
-            { title: "Transfer Premium", content: "The premium for the transfer of a flat (Transfer Fee) cannot exceed ₹25,000 as per govt notification." },
+            { title: "Transfer Premium", content: "The premium for the transfer of a flat (Transfer Fee) cannot exceed Rs. 25,000 as per govt notification." },
             { title: "NOC Requirement", content: "NOC from the Society is required for sale or mortgage. It must be issued within 30 days of application." },
-            { title: "Associate Member", content: "A person can become an associate member by paying an entrance fee of ₹100 and providing a consent letter from the original member." }
+            { title: "Associate Member", content: "A person can become an associate member by paying an entrance fee of Rs. 100 and providing a consent letter from the original member." }
         ]
     },
     {
@@ -164,7 +164,7 @@ const SOCIETY_TIPS = [
     },
     {
         title: "Transfer Premium Cap",
-        content: "The premium for the transfer of a flat (Transfer Fee) cannot exceed ₹25,000. Any demand for 'voluntary donations' for transferring membership is illegal."
+        content: "The premium for the transfer of a flat (Transfer Fee) cannot exceed Rs. 25,000. Any demand for 'voluntary donations' for transferring membership is illegal."
     },
     {
         title: "Right to Information",
@@ -375,12 +375,12 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
 
       <div className="w-px h-10 bg-slate-200 mx-1"></div>
 
-      <button className={btnClass} title={balances ? `Cash: ₹${balances.cash.toLocaleString()}` : "Cash Balance"}>
+      <button className={btnClass} title={balances ? `Cash: Rs. ${balances.cash.toLocaleString()}` : "Cash Balance"}>
         <Wallet size={iconSize} className="text-green-700 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Cash {balances ? `(${balances.cash.toLocaleString()})` : ''}</span>
       </button>
 
-      <button className={btnClass} title={balances ? `Bank: ₹${balances.bank.toLocaleString()}` : "Bank Balance"}>
+      <button className={btnClass} title={balances ? `Bank: Rs. ${balances.bank.toLocaleString()}` : "Bank Balance"}>
         <Landmark size={iconSize} className="text-blue-700 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Bank {balances ? `(${balances.bank.toLocaleString()})` : ''}</span>
       </button>
