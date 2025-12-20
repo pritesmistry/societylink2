@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, Society, PaymentStatus, PaymentDetails } from '../types';
-import { Search, Download, Eye, Calendar, Upload, FileText, Plus, CreditCard, AlertCircle } from 'lucide-react';
+import { Search, Download, Eye, Calendar, Upload, FileText, Plus, CreditCard, AlertCircle, Check, X } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ReceiptsProps {
@@ -42,7 +42,6 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
      b.unitNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
      b.id.toLowerCase().includes(searchTerm.toLowerCase()))
   ).sort((a, b) => {
-     // Sort by payment date descending (if available), else by bill ID
      const dateA = a.paymentDetails?.date || a.generatedDate;
      const dateB = b.paymentDetails?.date || b.generatedDate;
      return new Date(dateB).getTime() - new Date(dateA).getTime();
@@ -52,7 +51,6 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
 
   const totalCollected = paidBills.reduce((sum, bill) => sum + bill.totalAmount, 0);
 
-  // Calculate Outstanding for selected member
   const selectedBill = useMemo(() => bills.find(b => b.id === selectedBillId), [bills, selectedBillId]);
 
   const memberTotalOutstanding = useMemo(() => {
@@ -65,6 +63,17 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
         .reduce((sum, b) => sum + b.totalAmount, 0);
   }, [selectedBill, bills]);
 
+  const handleBillSelectionChange = (billId: string) => {
+    setSelectedBillId(billId);
+    if (billId) {
+        setPaymentForm(prev => ({
+            ...prev,
+            remarks: `MAINTENANCE AGAINST BILL NO. ${billId}`
+        }));
+    } else {
+        setPaymentForm(prev => ({ ...prev, remarks: '' }));
+    }
+  };
 
   const handleViewReceipt = (bill: Bill) => {
     setSelectedReceipt(bill);
@@ -101,9 +110,6 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
         if (!content) return;
 
         const lines = content.split(/\r\n|\n/);
-        // Expected CSV: Bill ID, Amount, Date, Mode, Reference, Remarks
-        // Start from index 1 to skip header
-        
         const updatedBills: Bill[] = [];
         let successCount = 0;
         let failCount = 0;
@@ -115,9 +121,7 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
             const [billId, amountStr, date, mode, ref, remarks] = line.split(',').map(item => item?.trim());
 
             if (!billId) continue;
-
-            // Find the bill matching ID (or Unit Number if logic allows, keeping strictly ID for safety)
-            const bill = bills.find(b => b.id === billId || b.id === `B${billId}`); // Handle case where user might omit prefix
+            const bill = bills.find(b => b.id === billId || b.id === `B${billId}`);
 
             if (bill && bill.status !== PaymentStatus.PAID) {
                 updatedBills.push({
@@ -127,7 +131,7 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
                         date: date || new Date().toISOString().split('T')[0],
                         mode: (mode as any) || 'Bank Transfer',
                         reference: ref || 'Bulk Upload',
-                        remarks: remarks || 'Bulk receipt entry'
+                        remarks: remarks || `MAINTENANCE AGAINST BILL NO. ${bill.id}`
                     }
                 });
                 successCount++;
@@ -150,10 +154,9 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
 
   const downloadTemplate = () => {
     const headers = "Bill ID,Amount,Payment Date (YYYY-MM-DD),Mode,Reference,Remarks\n";
-    // Find a pending bill for example
     const pendingBill = bills.find(b => b.status === PaymentStatus.PENDING);
     const exampleId = pendingBill ? pendingBill.id : "B123456";
-    const row = `${exampleId},1500,2023-10-25,UPI,UPI-998877,Oct Maintenance`;
+    const row = `${exampleId},1500,2023-10-25,UPI,UPI-998877,MAINTENANCE AGAINST BILL NO. ${exampleId}`;
     
     const blob = new Blob([headers + row], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -167,8 +170,6 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
   const downloadPDF = (elementId: string, filename: string) => {
     const element = document.getElementById(elementId);
     if (!element) return;
-    
-    // Temporarily remove shadow and border for clean print
     element.classList.remove('shadow-2xl', 'border');
     
     const opt = {
@@ -180,7 +181,6 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
     };
 
     window.html2pdf().set(opt).from(element).save().then(() => {
-        // Restore styles
         element.classList.add('shadow-2xl', 'border');
     });
   };
@@ -188,7 +188,7 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
   return (
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
-        onSearch={() => alert("Use the search bar below")}
+        onSearch={() => {}}
         onSave={() => setIsAddReceiptOpen(true)}
         balances={balances}
       />
@@ -199,7 +199,6 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
            <p className="text-sm text-slate-500 mt-1">Transaction history and downloadable receipts.</p>
         </div>
         <div className="flex gap-4">
-             {/* Bulk Action Area */}
             <div className="flex gap-2">
                 <input 
                     type="file" 
@@ -312,28 +311,25 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
       {/* --- ADD NEW RECEIPT MODAL --- */}
       {isAddReceiptOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] backdrop-blur-sm">
-             <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-                 <h2 className="text-xl font-bold mb-4 text-slate-800 flex items-center gap-2">
+             <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-200">
+                 <h2 className="text-2xl font-black mb-6 text-slate-800 flex items-center gap-2">
                      <Plus className="text-green-600" />
-                     New Receipt
+                     New Receipt Entry
                  </h2>
-                 <p className="text-sm text-slate-600 mb-6">
-                     Record payment for a pending bill to generate a receipt.
-                 </p>
                  
-                 <form onSubmit={handleSaveReceipt} className="space-y-4">
+                 <form onSubmit={handleSaveReceipt} className="space-y-5">
                      <div>
-                         <label className="block text-sm font-semibold text-slate-700 mb-1">Select Pending Bill *</label>
+                         <label className="block text-xs font-black text-slate-400 uppercase mb-2">Select Pending Bill *</label>
                          <select 
-                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                            className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-green-100 outline-none font-bold text-slate-700 transition-all"
                             required
                             value={selectedBillId}
-                            onChange={(e) => setSelectedBillId(e.target.value)}
+                            onChange={(e) => handleBillSelectionChange(e.target.value)}
                          >
                              <option value="">-- Choose Bill --</option>
                              {pendingBills.map(b => (
                                  <option key={b.id} value={b.id}>
-                                     {b.unitNumber} - {b.residentName} (₹{b.totalAmount}) - {b.dueDate}
+                                     {b.unitNumber} - {b.residentName} (₹{b.totalAmount.toLocaleString()})
                                  </option>
                              ))}
                              {pendingBills.length === 0 && <option disabled>No pending bills found</option>}
@@ -341,89 +337,84 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
                      </div>
 
                      {selectedBill && (
-                         <div className="bg-red-50 border border-red-200 rounded-lg p-4 animate-fade-in shadow-sm">
-                            <h3 className="text-red-800 font-bold text-xs uppercase mb-2 flex items-center gap-1">
-                                <AlertCircle size={14} /> Total Outstanding Summary
-                            </h3>
+                         <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 animate-fade-in shadow-inner">
+                            <div className="flex justify-between items-center mb-1">
+                                <p className="text-xs font-black text-indigo-400 uppercase tracking-tighter">Member Dues Summary</p>
+                                <span className="bg-indigo-200 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-black">{selectedBill.unitNumber}</span>
+                            </div>
                             <div className="flex justify-between items-end">
-                                <div>
-                                    <p className="text-sm text-red-700 font-bold">{selectedBill.residentName}</p>
-                                    <p className="text-xs text-red-600">{selectedBill.unitNumber}</p>
-                                </div>
+                                <p className="text-sm text-indigo-900 font-black">{selectedBill.residentName}</p>
                                 <div className="text-right">
-                                    <p className="text-xs text-red-500 uppercase font-semibold">Total Pending</p>
-                                    <p className="text-2xl font-bold text-red-700">₹{memberTotalOutstanding.toLocaleString()}</p>
+                                    <p className="text-[10px] text-indigo-400 uppercase font-bold">Total Outstanding</p>
+                                    <p className="text-xl font-black text-indigo-700">₹{memberTotalOutstanding.toLocaleString()}</p>
                                 </div>
                             </div>
                          </div>
                      )}
 
-                     {selectedBillId && !selectedBill && (
-                         <div className="bg-slate-50 p-3 rounded text-sm text-slate-700 border border-slate-200">
-                             <strong>Bill Amount: </strong>
-                             ₹{bills.find(b => b.id === selectedBillId)?.totalAmount}
-                         </div>
-                     )}
+                     <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-black text-slate-400 uppercase mb-1">Payment Date</label>
+                            <input 
+                                type="date" 
+                                required 
+                                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-green-100 outline-none font-bold"
+                                value={paymentForm.date}
+                                onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-black text-slate-400 uppercase mb-1">Payment Mode</label>
+                            <select 
+                                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-green-100 outline-none font-bold"
+                                value={paymentForm.mode}
+                                onChange={(e) => setPaymentForm({...paymentForm, mode: e.target.value as any})}
+                            >
+                                <option value="UPI">UPI / GPay</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Cheque">Cheque</option>
+                                <option value="Cash">Cash</option>
+                            </select>
+                        </div>
+                     </div>
 
                      <div>
-                         <label className="block text-sm font-semibold text-slate-700 mb-1">Payment Date</label>
-                         <input 
-                            type="date" 
-                            required 
-                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
-                            value={paymentForm.date}
-                            onChange={(e) => setPaymentForm({...paymentForm, date: e.target.value})}
-                         />
-                     </div>
-                     <div>
-                         <label className="block text-sm font-semibold text-slate-700 mb-1">Payment Mode</label>
-                         <select 
-                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
-                            value={paymentForm.mode}
-                            onChange={(e) => setPaymentForm({...paymentForm, mode: e.target.value as any})}
-                         >
-                             <option value="UPI">UPI / GPay / PhonePe</option>
-                             <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
-                             <option value="Cheque">Cheque</option>
-                             <option value="Cash">Cash</option>
-                         </select>
-                     </div>
-                     <div>
-                         <label className="block text-sm font-semibold text-slate-700 mb-1">Reference / Cheque No.</label>
+                         <label className="block text-xs font-black text-slate-400 uppercase mb-1">Reference / Cheque No. *</label>
                          <input 
                             type="text" 
                             required 
-                            placeholder="e.g. UPI-12345678"
-                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                            placeholder="TXN ID or Cheque Number"
+                            className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-green-100 outline-none font-bold"
                             value={paymentForm.reference}
                             onChange={(e) => setPaymentForm({...paymentForm, reference: e.target.value})}
                          />
                      </div>
+
                      <div>
-                         <label className="block text-sm font-semibold text-slate-700 mb-1">Remarks</label>
-                         <input 
-                            type="text" 
-                            placeholder="Optional notes"
-                            className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-green-500 outline-none"
+                         <label className="block text-xs font-black text-slate-400 uppercase mb-1">Remarks (Auto-picked)</label>
+                         <textarea 
+                            rows={2}
+                            placeholder="Payment remarks"
+                            className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-green-100 outline-none font-bold text-indigo-700 bg-slate-50"
                             value={paymentForm.remarks}
                             onChange={(e) => setPaymentForm({...paymentForm, remarks: e.target.value})}
                          />
                      </div>
 
-                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
+                     <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 mt-2">
                          <button 
                             type="button" 
                             onClick={() => setIsAddReceiptOpen(false)}
-                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                            className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-all"
                          >
-                             Cancel
+                             <X size={18} className="inline mr-1" /> CANCEL
                          </button>
                          <button 
                             type="submit" 
                             disabled={!selectedBillId}
-                            className="px-6 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-10 py-2.5 bg-green-600 text-white font-black rounded-xl shadow-lg shadow-green-100 hover:bg-green-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                          >
-                             Save Receipt
+                             <Check size={18} /> SAVE RECEIPT
                          </button>
                      </div>
                  </form>
@@ -453,17 +444,14 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
                   <div 
                     id="receipt-preview-full" 
                     className="bg-white w-[210mm] h-[148mm] p-[10mm] shadow-2xl mx-auto text-slate-800 relative border border-slate-200"
-                    style={{ fontFamily: 'Inter, sans-serif' }}
                   >
                         <div className="border-4 border-double border-slate-200 h-full p-8 flex flex-col justify-between">
-                            {/* Header */}
                             <div className="text-center border-b pb-4">
-                                <h1 className="text-2xl font-bold text-slate-900">{activeSociety.name}</h1>
+                                <h1 className="text-2xl font-bold text-slate-900 uppercase">{activeSociety.name}</h1>
                                 <p className="text-sm text-slate-500">{activeSociety.address}</p>
-                                <h2 className="text-xl font-bold text-green-700 mt-4 uppercase tracking-wider border-2 border-green-700 inline-block px-4 py-1 rounded">Payment Receipt</h2>
+                                <h2 className="text-xl font-bold text-green-700 mt-4 uppercase tracking-wider border-2 border-green-700 inline-block px-4 py-1 rounded">Official Receipt</h2>
                             </div>
                             
-                            {/* Details */}
                             <div className="flex justify-between items-start my-6">
                                 <div className="space-y-2">
                                     <p className="text-sm">Receipt No: <span className="font-bold">RCP-{selectedReceipt.id}</span></p>
@@ -480,24 +468,24 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
                                     Received with thanks from <span className="font-bold border-b border-slate-400 px-2">{selectedReceipt.residentName}</span>
                                 </p>
                                 <p>
-                                    A sum of Rupees <span className="font-bold border-b border-slate-400 px-2">₹ {selectedReceipt.totalAmount.toFixed(2)} /-</span>
+                                    A sum of Rupees <span className="font-bold border-b border-slate-400 px-2">₹ {selectedReceipt.totalAmount.toLocaleString()} /-</span>
                                 </p>
                                 <p>
                                     By <span className="font-bold border-b border-slate-400 px-2">{selectedReceipt.paymentDetails.mode}</span> 
                                     (Ref: {selectedReceipt.paymentDetails.reference})
                                 </p>
                                 <p>
-                                    Towards <span className="font-bold border-b border-slate-400 px-2">Maintenance Bill #{selectedReceipt.id}</span>
+                                    Towards <span className="font-bold border-b border-slate-400 px-2">{selectedReceipt.paymentDetails.remarks}</span>
                                 </p>
                             </div>
 
                             <div className="flex justify-between items-end mt-8 pt-8">
-                                <div className="text-sm text-slate-500">
-                                    * This is a computer generated receipt.
+                                <div className="text-[10px] text-slate-400 italic">
+                                    * Computer generated receipt - Signature not required.
                                 </div>
                                 <div className="text-center">
-                                    <div className="h-12 w-32 mb-2"></div>
-                                    <p className="font-bold text-slate-800 border-t border-slate-400 pt-1 px-4">Authorized Signatory</p>
+                                    <div className="h-10 w-32 mb-1"></div>
+                                    <p className="font-black text-slate-800 border-t border-slate-400 pt-1 px-4 text-xs uppercase">Hon. Treasurer</p>
                                 </div>
                             </div>
                         </div>
