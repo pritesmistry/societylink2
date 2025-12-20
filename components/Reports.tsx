@@ -219,16 +219,16 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                     <table className="w-full text-[11px] border-collapse border border-slate-800">
                         <thead className="bg-slate-900 text-white">
                             <tr>
-                                <th className="p-2 text-left border border-slate-800" rowSpan={2}>Particulars (Expenditure)</th>
-                                <th className="p-2 text-center border border-slate-800" colSpan={2}>Amount (₹)</th>
-                                <th className="p-2 text-left border border-slate-800" rowSpan={2}>Particulars (Income)</th>
-                                <th className="p-2 text-center border border-slate-800" colSpan={2}>Amount (₹)</th>
+                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Expenditure (Payments)</th>
+                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Income (Receipts)</th>
                             </tr>
                             <tr className="bg-slate-800 text-[10px]">
+                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
+                                <th className="p-2 text-left border border-slate-700">Particulars</th>
                                 <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
                                 <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
+                                <th className="p-2 text-left border border-slate-700">Particulars</th>
                                 <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -238,22 +238,22 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                                         <tbody>
                                             {mergedExpenseCategories.map((cat, i) => (
                                                 <tr key={i} className="border-b border-slate-100">
+                                                    <td className="p-2 text-right text-slate-400 w-24 border-r border-slate-100 italic">
+                                                        {formatMoney(financials.previous.expensesByCategory[cat])}
+                                                    </td>
                                                     <td className="p-2 text-slate-700">{cat}</td>
                                                     <td className="p-2 text-right font-bold w-24 border-l border-slate-100">
                                                         {formatMoney(financials.current.expensesByCategory[cat])}
                                                     </td>
-                                                    <td className="p-2 text-right text-slate-400 w-24 border-l border-slate-100 italic">
-                                                        {formatMoney(financials.previous.expensesByCategory[cat])}
-                                                    </td>
                                                 </tr>
                                             ))}
                                             <tr className="bg-indigo-50 font-black">
+                                                <td className="p-2 text-right text-green-500/50 w-24 border-r border-slate-200">
+                                                    {financials.previous.netSurplus > 0 ? formatMoney(financials.previous.netSurplus) : '0.00'}
+                                                </td>
                                                 <td className="p-2">Surplus (Net Profit)</td>
                                                 <td className="p-2 text-right text-green-700 w-24 border-l border-slate-200">
                                                     {financials.current.netSurplus > 0 ? formatMoney(financials.current.netSurplus) : '0.00'}
-                                                </td>
-                                                <td className="p-2 text-right text-green-500/50 w-24 border-l border-slate-200">
-                                                    {financials.previous.netSurplus > 0 ? formatMoney(financials.previous.netSurplus) : '0.00'}
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -263,20 +263,20 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                                     <table className="w-full">
                                         <tbody>
                                             <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right text-slate-400 w-24 border-r border-slate-100 italic">{formatMoney(financials.previous.totalBilled)}</td>
                                                 <td className="p-2 text-slate-700">Maintenance Collections</td>
                                                 <td className="p-2 text-right font-bold w-24 border-l border-slate-100">{formatMoney(financials.current.totalBilled)}</td>
-                                                <td className="p-2 text-right text-slate-400 w-24 border-l border-slate-100 italic">{formatMoney(financials.previous.totalBilled)}</td>
                                             </tr>
                                             <tr className="border-b border-slate-100">
+                                                <td className="p-2 text-right text-slate-400 w-24 border-r border-slate-100 italic">{formatMoney(financials.previous.totalOtherIncome)}</td>
                                                 <td className="p-2 text-slate-700">Other Society Income</td>
                                                 <td className="p-2 text-right font-bold w-24 border-l border-slate-100">{formatMoney(financials.current.totalOtherIncome)}</td>
-                                                <td className="p-2 text-right text-slate-400 w-24 border-l border-slate-100 italic">{formatMoney(financials.previous.totalOtherIncome)}</td>
                                             </tr>
                                             {financials.current.netSurplus < 0 && (
                                                 <tr className="bg-red-50 font-black">
+                                                    <td className="p-2 text-right text-red-500/50 w-24 border-r border-slate-200">{formatMoney(Math.abs(financials.previous.netSurplus))}</td>
                                                     <td className="p-2">Deficit (Net Loss)</td>
                                                     <td className="p-2 text-right text-red-700 w-24 border-l border-slate-200">{formatMoney(Math.abs(financials.current.netSurplus))}</td>
-                                                    <td className="p-2 text-right text-red-500/50 w-24 border-l border-slate-200">{formatMoney(Math.abs(financials.previous.netSurplus))}</td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -286,12 +286,12 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                         </tbody>
                         <tfoot className="bg-slate-100 font-black text-[12px]">
                             <tr>
-                                <td className="p-2 text-right uppercase">Total Expenditure</td>
-                                <td className="p-2 text-right border-l border-slate-300">{formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}</td>
-                                <td className="p-2 text-right border-l border-slate-300 text-slate-500">{formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}</td>
-                                <td className="p-2 text-right uppercase border-l border-slate-300">Total Income</td>
-                                <td className="p-2 text-right border-l border-slate-300">{formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}</td>
-                                <td className="p-2 text-right border-l border-slate-300 text-slate-500">{formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}</td>
+                                <td className="p-2 text-right text-slate-500 w-24 border-r border-slate-300">{formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}</td>
+                                <td className="p-2 text-left uppercase">Total Expenditure</td>
+                                <td className="p-2 text-right border-l border-slate-300 w-24">{formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}</td>
+                                <td className="p-2 text-right text-slate-500 w-24 border-r border-slate-300">{formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}</td>
+                                <td className="p-2 text-left uppercase">Total Income</td>
+                                <td className="p-2 text-right border-l border-slate-300 w-24">{formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -303,32 +303,34 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                     <table className="w-full text-[11px] border-collapse border border-slate-800">
                         <thead className="bg-slate-900 text-white">
                             <tr>
-                                <th className="p-2 text-left border border-slate-800" rowSpan={2}>Liabilities</th>
-                                <th className="p-2 text-center border border-slate-800" colSpan={2}>Amount (₹)</th>
-                                <th className="p-2 text-left border border-slate-800" rowSpan={2}>Assets</th>
-                                <th className="p-2 text-center border border-slate-800" colSpan={2}>Amount (₹)</th>
+                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Capital & Liabilities</th>
+                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Property & Assets</th>
                             </tr>
                             <tr className="bg-slate-800 text-[10px]">
+                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
+                                <th className="p-2 text-left border border-slate-700">Particulars</th>
                                 <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
                                 <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
+                                <th className="p-2 text-left border border-slate-700">Particulars</th>
                                 <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
                             </tr>
                         </thead>
                         <tbody className="align-top">
                             <tr className="h-40">
+                                <td className="p-4 border border-slate-300 text-right text-slate-400 italic bg-slate-50/50 w-24 align-middle">
+                                    {formatMoney(financials.previous.totalOpeningBalances + financials.previous.netSurplus)}
+                                </td>
                                 <td className="p-4 border border-slate-300">
                                     <p className="font-bold text-indigo-700 mb-2 uppercase text-[10px]">Reserves & Funds</p>
                                     <div className="flex justify-between pl-2 text-[10px] mb-1"><span>Opening Balance / Corpus</span></div>
                                     <div className="flex justify-between pl-2 text-[10px]"><span>Accumulated Surplus</span></div>
                                 </td>
-                                <td className="p-4 border border-slate-300 text-right font-black bg-slate-50 w-24">
-                                    <div className="h-4 mb-1"></div>
+                                <td className="p-4 border border-slate-300 text-right font-black bg-slate-50 w-24 align-middle">
                                     {formatMoney(financials.current.totalOpeningBalances + financials.current.netSurplus)}
                                 </td>
                                 <td className="p-4 border border-slate-300 text-right text-slate-400 italic bg-slate-50/50 w-24">
-                                    <div className="h-4 mb-1"></div>
-                                    {formatMoney(financials.previous.totalOpeningBalances + financials.previous.netSurplus)}
+                                    <p className="mb-1">{formatMoney(financials.previous.cashInHand)}</p>
+                                    <p>{formatMoney(financials.previous.totalReceivables)}</p>
                                 </td>
                                 <td className="p-4 border border-slate-300">
                                     <p className="font-bold text-indigo-700 mb-2 uppercase text-[10px]">Current Assets</p>
@@ -339,20 +341,16 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                                     <p className="mb-1">{formatMoney(financials.current.cashInHand)}</p>
                                     <p>{formatMoney(financials.current.totalReceivables)}</p>
                                 </td>
-                                <td className="p-4 border border-slate-300 text-right text-slate-400 italic bg-slate-50/50 w-24">
-                                    <p className="mb-1">{formatMoney(financials.previous.cashInHand)}</p>
-                                    <p>{formatMoney(financials.previous.totalReceivables)}</p>
-                                </td>
                             </tr>
                         </tbody>
                         <tfoot className="bg-slate-900 text-white font-black text-[12px]">
                             <tr>
-                                <td className="p-2 text-right">TOTAL LIABILITIES</td>
-                                <td className="p-2 text-right border-l border-slate-700">{formatMoney(financials.current.totalAssets)}</td>
-                                <td className="p-2 text-right border-l border-slate-700 text-slate-400 italic">{formatMoney(financials.previous.totalAssets)}</td>
-                                <td className="p-2 text-right border-l border-slate-700">TOTAL ASSETS</td>
-                                <td className="p-2 text-right border-l border-slate-700">{formatMoney(financials.current.totalAssets)}</td>
-                                <td className="p-2 text-right border-l border-slate-700 text-slate-400 italic">{formatMoney(financials.previous.totalAssets)}</td>
+                                <td className="p-2 text-right border-r border-slate-700 text-slate-400 italic w-24">{formatMoney(financials.previous.totalAssets)}</td>
+                                <td className="p-2 text-left">TOTAL LIABILITIES</td>
+                                <td className="p-2 text-right border-l border-slate-700 w-24">{formatMoney(financials.current.totalAssets)}</td>
+                                <td className="p-2 text-right border-r border-slate-700 text-slate-400 italic w-24">{formatMoney(financials.previous.totalAssets)}</td>
+                                <td className="p-2 text-left">TOTAL ASSETS</td>
+                                <td className="p-2 text-right border-l border-slate-700 w-24">{formatMoney(financials.current.totalAssets)}</td>
                             </tr>
                         </tfoot>
                     </table>
