@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark } from 'lucide-react';
+// Add Info to the lucide-react imports to resolve the "Cannot find name 'Info'" error
+import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -19,16 +20,18 @@ interface BillingProps {
   onBulkAddBills: (bills: Bill[]) => void;
   onUpdateSociety: (society: Society) => void;
   onUpdateBill: (bill: Bill) => void;
+  onBulkUpdateBills: (bills: Bill[]) => void;
   balances?: { cash: number; bank: number };
 }
 
-const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSociety, onGenerateBill, onBulkAddBills, onUpdateSociety, onUpdateBill, balances }) => {
+const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSociety, onGenerateBill, onBulkAddBills, onUpdateSociety, onUpdateBill, onBulkUpdateBills, balances }) => {
   const [filter, setFilter] = useState<PaymentStatus | 'All'>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isGatewayOpen, setIsGatewayOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
   const [previewBill, setPreviewBill] = useState<Bill | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<'TOP_BILL' | 'BILL_WITH_RECEIPT' | 'FOOTER_NOTES'>('TOP_BILL');
@@ -44,6 +47,10 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   // Interest States
   const [applyInterest, setApplyInterest] = useState(false);
   const [interestRate, setInterestRate] = useState(21); // Default 21% p.a.
+
+  // Update Modal State
+  const [updateMode, setUpdateMode] = useState<'INDIVIDUAL' | 'ALL'>('ALL');
+  const [updateResidentId, setUpdateResidentId] = useState('');
 
   const [items, setItems] = useState<BillItem[]>([]);
   
@@ -134,17 +141,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const addItem = () => setItems([...items, { id: Date.now().toString(), description: '', type: 'Fixed', rate: 0, amount: 0 }]);
   const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index));
 
-  const handleAddCustomNote = () => {
-      if (noteInput.trim()) {
-          setCustomBillNotes([...customBillNotes, noteInput.trim()]);
-          setNoteInput('');
-      }
-  };
-
-  const removeCustomNote = (idx: number) => {
-      setCustomBillNotes(customBillNotes.filter((_, i) => i !== idx));
-  };
-
   const handleOpenGenerateModal = () => {
       const defaults = activeSociety.billingHeads || [
           { id: '1', description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }
@@ -213,6 +209,41 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       
       setIsModalOpen(false);
     }
+  };
+
+  const handleUpdateBillsProcess = (e: React.FormEvent) => {
+      e.preventDefault();
+      const heads = activeSociety.billingHeads || [];
+      const updatedBills = bills.map(bill => {
+          if (bill.status !== PaymentStatus.PAID) {
+              if (updateMode === 'ALL' || bill.residentId === updateResidentId) {
+                  const resident = residents.find(r => r.id === bill.residentId);
+                  if (!resident) return bill;
+
+                  const newItems = heads.map(head => {
+                      if (head.description.toLowerCase().includes('non-occupancy') && resident.occupancyType === 'Owner') {
+                          return { ...head, amount: 0 };
+                      }
+                      return {
+                          ...head,
+                          amount: head.type === 'SqFt' ? head.rate * resident.sqFt : head.rate
+                      };
+                  }).filter(i => i.amount > 0);
+
+                  const principal = newItems.reduce((s, i) => s + i.amount, 0);
+                  return {
+                      ...bill,
+                      items: newItems,
+                      totalAmount: principal + bill.interest
+                  };
+              }
+          }
+          return bill;
+      });
+
+      onBulkUpdateBills(updatedBills);
+      setIsUpdateModalOpen(false);
+      alert("Billing figures updated successfully based on current society settings.");
   };
 
   const handlePaymentClick = (bill: Bill) => {
@@ -341,12 +372,18 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         </div>
         <div className="flex gap-2">
             <button 
+                onClick={() => setIsUpdateModalOpen(true)}
+                className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-100 transition-colors shadow-sm font-bold text-sm"
+            >
+                <RefreshCcw size={18} /> Update Bills
+            </button>
+            <button 
                 onClick={() => { 
                     setTempFooterNote(activeSociety.footerNote || ''); 
                     setTempBillingHeads(activeSociety.billingHeads || []);
                     setIsSettingsOpen(true); 
                 }}
-                className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-colors shadow-sm"
+                className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-100 transition-colors shadow-sm"
             >
                 <Settings size={18} /> Global Settings
             </button>
@@ -439,6 +476,81 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
           );
         })}
       </div>
+
+      {/* --- UPDATE MODAL --- */}
+      {isUpdateModalOpen && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] backdrop-blur-md p-4">
+             <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-300">
+                 <h2 className="text-2xl font-black mb-2 text-slate-800 flex items-center gap-3">
+                     <RefreshCcw className="text-indigo-600 animate-spin-slow" size={28} />
+                     Update Pending Bills
+                 </h2>
+                 <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+                     Re-calculate existing <span className="font-bold text-slate-800">Pending</span> bills using current society rates. Use this if you modified Global Settings after generating bills.
+                 </p>
+                 
+                 <form onSubmit={handleUpdateBillsProcess} className="space-y-6">
+                     <div className="bg-slate-50 p-1.5 rounded-2xl flex gap-1 border border-slate-200">
+                        <button 
+                            type="button"
+                            onClick={() => setUpdateMode('INDIVIDUAL')}
+                            className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-black transition-all ${updateMode === 'INDIVIDUAL' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:bg-slate-100'}`}
+                        >
+                            <User size={16} /> ONE MEMBER
+                        </button>
+                        <button 
+                            type="button"
+                            onClick={() => setUpdateMode('ALL')}
+                            className={`flex-1 py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-black transition-all ${updateMode === 'ALL' ? 'bg-white text-indigo-600 shadow-md' : 'text-slate-400 hover:bg-slate-100'}`}
+                        >
+                            <Layers size={16} /> ALL MEMBERS
+                        </button>
+                     </div>
+
+                     {updateMode === 'INDIVIDUAL' && (
+                         <div className="animate-in slide-in-from-top-2">
+                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Select Member to Update</label>
+                             <select 
+                                className="w-full p-4 border border-slate-300 rounded-2xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-slate-700"
+                                required
+                                value={updateResidentId}
+                                onChange={(e) => setUpdateResidentId(e.target.value)}
+                             >
+                                 <option value="">-- Choose Member --</option>
+                                 {residents.map(r => (
+                                     <option key={r.id} value={r.id}>{r.unitNumber} - {r.name}</option>
+                                 ))}
+                             </select>
+                         </div>
+                     )}
+
+                     <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 flex gap-3">
+                         <Info className="text-indigo-600 shrink-0" size={20} />
+                         <p className="text-[11px] text-indigo-800 leading-relaxed font-medium">
+                             This process will <span className="font-bold">overwrite</span> the line items of selected pending bills but will <span className="font-bold">preserve</span> existing Interest and Arrears figures.
+                         </p>
+                     </div>
+
+                     <div className="flex justify-end gap-3 pt-4">
+                         <button 
+                            type="button" 
+                            onClick={() => setIsUpdateModalOpen(false)}
+                            className="px-6 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-all"
+                         >
+                             CANCEL
+                         </button>
+                         <button 
+                            type="submit" 
+                            disabled={updateMode === 'INDIVIDUAL' && !updateResidentId}
+                            className="px-10 py-3 bg-indigo-600 text-white rounded-xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-2 disabled:opacity-50"
+                         >
+                             <RefreshCcw size={18} /> SYNC DATA
+                         </button>
+                     </div>
+                 </form>
+             </div>
+          </div>
+      )}
 
       {/* --- MOCK PAYMENT GATEWAY MODAL --- */}
       {isGatewayOpen && selectedBillForPay && (
