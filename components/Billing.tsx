@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -40,9 +40,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0]);
   const [billingMonth, setBillingMonth] = useState(new Date().toISOString().slice(0, 7)); 
   
-  const [items, setItems] = useState<BillItem[]>([
-    { id: '1', description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }
-  ]);
+  const [items, setItems] = useState<BillItem[]>([]);
   const [interest, setInterest] = useState<number>(0);
   
   // Custom Notes State for Generation
@@ -51,6 +49,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   // Settings State
   const [tempFooterNote, setTempFooterNote] = useState(activeSociety.footerNote || '');
+  const [tempBillingHeads, setTempBillingHeads] = useState<BillItem[]>(activeSociety.billingHeads || []);
 
   const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0) + interest;
@@ -76,10 +75,17 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     const resident = residents.find(r => r.id === residentId);
     if (!resident) return;
 
-    setItems(prev => prev.map(item => ({
-      ...item,
-      amount: item.type === 'SqFt' ? item.rate * resident.sqFt : item.rate
-    })));
+    // Recalculate amounts based on selected resident for individual mode
+    setItems(prev => prev.map(item => {
+        // Special case: Non-Occupancy Charges only apply to Tenants
+        if (item.description.toLowerCase().includes('non-occupancy') && resident.occupancyType === 'Owner') {
+            return { ...item, amount: 0 };
+        }
+        return {
+            ...item,
+            amount: item.type === 'SqFt' ? item.rate * resident.sqFt : item.rate
+        };
+    }));
   };
 
   const handleItemChange = (index: number, field: keyof BillItem, value: any) => {
@@ -89,7 +95,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     
     if (field === 'rate' || field === 'type') {
        const rate = Number(value) || 0;
-       // If bulk mode, we ignore per-resident SqFt in calculation here and do it during generation loop
        item.amount = (item.type === 'SqFt' && resident && generationMode === 'INDIVIDUAL') ? rate * resident.sqFt : rate;
     }
     newItems[index] = item;
@@ -111,7 +116,12 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   };
 
   const handleOpenGenerateModal = () => {
-      setItems([{ id: Date.now().toString(), description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }]);
+      // Pre-populate from global society settings
+      const defaults = activeSociety.billingHeads || [
+          { id: '1', description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }
+      ];
+      setItems(defaults.map(d => ({ ...d, id: Math.random().toString() })));
+      
       setCustomBillNotes([]);
       setBillDate(new Date().toISOString().split('T')[0]);
       setBillingMonth(new Date().toISOString().slice(0, 7));
@@ -128,10 +138,16 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     if (targets.length > 0 && dueDate && billDate) {
       const generatedBills: Bill[] = targets.map(resident => {
           // Re-calculate item amounts if they are SqFt based for this specific resident
-          const residentItems = items.map(item => ({
-              ...item,
-              amount: item.type === 'SqFt' ? item.rate * resident.sqFt : item.rate
-          }));
+          const residentItems = items.map(item => {
+              // Rule: Non-occupancy charges only for Tenants
+              if (item.description.toLowerCase().includes('non-occupancy') && resident.occupancyType === 'Owner') {
+                  return { ...item, amount: 0 };
+              }
+              return {
+                  ...item,
+                  amount: item.type === 'SqFt' ? item.rate * resident.sqFt : item.rate
+              };
+          }).filter(item => item.amount > 0); // Hide zero amount rows (like non-occupancy for owners)
           
           const residentTotal = residentItems.reduce((sum, item) => sum + item.amount, 0) + interest;
 
@@ -147,7 +163,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             dueDate: dueDate,
             status: PaymentStatus.PENDING,
             generatedDate: billDate,
-            billMonth: billingMonth, // Month string stores the start month or selection
+            billMonth: billingMonth,
             customNotes: [...customBillNotes, `Frequency: ${billingFrequency}`]
           };
       });
@@ -183,8 +199,26 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   };
 
   const handleSaveGlobalSettings = () => {
-      onUpdateSociety({ ...activeSociety, footerNote: tempFooterNote });
+      onUpdateSociety({ 
+          ...activeSociety, 
+          footerNote: tempFooterNote,
+          billingHeads: tempBillingHeads
+      });
       setIsSettingsOpen(false);
+  };
+
+  const addTempBillingHead = () => {
+      setTempBillingHeads([...tempBillingHeads, { id: Date.now().toString(), description: '', type: 'Fixed', rate: 0, amount: 0 }]);
+  };
+
+  const removeTempBillingHead = (idx: number) => {
+      setTempBillingHeads(tempBillingHeads.filter((_, i) => i !== idx));
+  };
+
+  const handleTempHeadChange = (idx: number, field: keyof BillItem, value: any) => {
+      const updated = [...tempBillingHeads];
+      updated[idx] = { ...updated[idx], [field]: value };
+      setTempBillingHeads(updated);
   };
 
   const downloadPDF = (elementId: string, filename: string) => {
@@ -221,7 +255,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
         onSave={handleOpenGenerateModal} 
-        onModify={() => { setTempFooterNote(activeSociety.footerNote || ''); setIsSettingsOpen(true); }}
+        onModify={() => { 
+            setTempFooterNote(activeSociety.footerNote || ''); 
+            setTempBillingHeads(activeSociety.billingHeads || []);
+            setIsSettingsOpen(true); 
+        }}
         balances={balances} 
       />
 
@@ -241,7 +279,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         </div>
         <div className="flex gap-2">
             <button 
-                onClick={() => { setTempFooterNote(activeSociety.footerNote || ''); setIsSettingsOpen(true); }}
+                onClick={() => { 
+                    setTempFooterNote(activeSociety.footerNote || ''); 
+                    setTempBillingHeads(activeSociety.billingHeads || []);
+                    setIsSettingsOpen(true); 
+                }}
                 className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-colors shadow-sm"
             >
                 <Settings size={18} /> Global Settings
@@ -302,27 +344,80 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       {/* --- SETTINGS MODAL --- */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl p-8 w-full max-w-xl shadow-2xl">
+            <div className="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold flex items-center gap-2 text-slate-800"><Settings className="text-indigo-600" /> Billing Settings</h2>
+                    <h2 className="text-2xl font-bold flex items-center gap-2 text-slate-800"><Settings className="text-indigo-600" /> Global Billing Settings</h2>
                     <button onClick={() => setIsSettingsOpen(false)} className="text-slate-400 hover:text-slate-600"><X /></button>
                 </div>
-                <div className="space-y-4">
+                
+                <div className="space-y-8">
+                    {/* GLOBAL DEFAULT HEADS */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-2">Default Global Footer Note (Static)</label>
+                        <div className="flex justify-between items-center mb-3">
+                            <label className="block text-sm font-black text-indigo-700 uppercase tracking-wider">Default Charges for All Members</label>
+                            <button onClick={addTempBillingHead} className="text-xs bg-indigo-600 text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1 hover:bg-indigo-700"><Plus size={14} /> Add Head</button>
+                        </div>
+                        <p className="text-xs text-slate-400 mb-4 italic">These charges will be automatically loaded when you start a new bill generation batch.</p>
+                        
+                        <div className="space-y-3">
+                            {tempBillingHeads.map((head, idx) => (
+                                <div key={idx} className="flex gap-2 items-center bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-sm">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Head (e.g. Sinking Fund)" 
+                                        className="flex-1 p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold" 
+                                        value={head.description} 
+                                        onChange={(e) => handleTempHeadChange(idx, 'description', e.target.value)}
+                                    />
+                                    <select 
+                                        className="w-24 p-2 bg-white border border-slate-200 rounded-lg text-xs"
+                                        value={head.type}
+                                        onChange={(e) => handleTempHeadChange(idx, 'type', e.target.value as any)}
+                                    >
+                                        <option value="Fixed">Fixed</option>
+                                        <option value="SqFt">/ Sq.Ft</option>
+                                    </select>
+                                    <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">Rs.</span>
+                                        <input 
+                                            type="number" 
+                                            placeholder="Rate" 
+                                            className="w-24 p-2 pl-8 bg-white border border-slate-200 rounded-lg text-sm font-black text-indigo-600" 
+                                            value={head.rate} 
+                                            onChange={(e) => handleTempHeadChange(idx, 'rate', Number(e.target.value))}
+                                        />
+                                    </div>
+                                    <button onClick={() => removeTempBillingHead(idx)} className="text-slate-300 hover:text-red-500 transition-colors p-1"><Trash2 size={18} /></button>
+                                </div>
+                            ))}
+                            {tempBillingHeads.length === 0 && (
+                                <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">No default charges set.</div>
+                            )}
+                        </div>
+                        
+                        <div className="mt-4 bg-amber-50 p-3 rounded-lg border border-amber-100 flex gap-2">
+                            <ShieldCheck className="text-amber-600 shrink-0" size={18} />
+                            <p className="text-[10px] text-amber-800 leading-relaxed font-medium">
+                                <strong>Pro-Tip:</strong> If you add a head named <strong>'Non-Occupancy Charges'</strong>, the system will only apply it to units marked as 'Tenant' during generation. Owners will be automatically skipped for this specific head.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-6">
+                        <label className="block text-sm font-black text-indigo-700 uppercase tracking-wider mb-2">Static Footer Note</label>
                         <textarea 
-                            rows={4}
-                            className="w-full p-4 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm leading-relaxed"
-                            placeholder="This note will appear on every bill generated by the society."
+                            rows={3}
+                            className="w-full p-4 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm leading-relaxed font-medium"
+                            placeholder="Bank details, office hours, etc."
                             value={tempFooterNote}
                             onChange={(e) => setTempFooterNote(e.target.value)}
                         />
-                        <p className="text-xs text-slate-400 mt-2">Recommended for bank details, office hours, or general payment policy.</p>
                     </div>
                 </div>
-                <div className="flex justify-end gap-3 pt-8 border-t mt-8">
+
+                <div className="flex justify-end gap-3 pt-8 border-t mt-8 sticky bottom-0 bg-white">
                     <button onClick={() => setIsSettingsOpen(false)} className="px-6 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Cancel</button>
-                    <button onClick={handleSaveGlobalSettings} className="px-8 py-2 bg-indigo-600 text-white rounded-lg font-black hover:bg-indigo-700 shadow-lg">Save Global Footer</button>
+                    <button onClick={handleSaveGlobalSettings} className="px-8 py-2 bg-indigo-600 text-white rounded-lg font-black hover:bg-indigo-700 shadow-lg">Apply All Global Settings</button>
                 </div>
             </div>
         </div>
@@ -560,19 +655,19 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 
                 {/* Bill Items Section */}
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Billing Heads (Auto-calculated)</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
+                    <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Billing Heads (Auto-populated from Defaults)</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
                     {items.map((item, idx) => (
                         <div key={item.id} className="flex gap-2 items-center">
-                            <input type="text" placeholder="Description (e.g. Water Charges)" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm" value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)}/>
+                            <input type="text" placeholder="Description (e.g. Water Charges)" className="flex-1 p-2 border border-slate-200 rounded-lg text-sm font-bold" value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)}/>
                             <select className="w-24 p-2 border border-slate-200 rounded-lg text-xs" value={item.type} onChange={e => handleItemChange(idx, 'type', e.target.value)}>
                                 <option value="Fixed">Fixed</option>
                                 <option value="SqFt">/ Sq.Ft</option>
                             </select>
-                            <input type="number" placeholder="Rate" className="w-24 p-2 border border-slate-200 rounded-lg text-sm" value={item.rate} onChange={e => handleItemChange(idx, 'rate', e.target.value)}/>
+                            <input type="number" placeholder="Rate" className="w-24 p-2 border border-slate-200 rounded-lg text-sm font-black text-indigo-700" value={item.rate} onChange={e => handleItemChange(idx, 'rate', e.target.value)}/>
                             <button type="button" onClick={() => removeItem(idx)} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
                         </div>
                     ))}
-                    <p className="text-[10px] text-slate-400">Note: 'Fixed' adds flat amount. '/ Sq.Ft' multiplies rate with member's unit size.</p>
+                    <p className="text-[10px] text-slate-400">Note: Use 'Global Settings' to change these defaults forever.</p>
                 </div>
 
                 {/* ADDITIONAL FOOTER SECTION */}
