@@ -73,12 +73,12 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     if (arrears <= 0) return 0;
     
     // Formula: (Arrears * Rate / 100) / 12 (Monthly)
-    // Adjust divisor based on frequency
     const divisor = billingFrequency === 'QUARTERLY' ? 4 : (billingFrequency === 'BI-MONTHLY' ? 6 : 12);
     return (arrears * interestRate / 100) / divisor;
   }, [applyInterest, generationMode, selectedResidentId, interestRate, billingFrequency]);
 
-  const totalAmount = items.reduce((sum, item) => sum + item.amount, 0) + calculatedInterest;
+  const totalPrincipal = items.reduce((sum, item) => sum + item.amount, 0);
+  const totalAmount = totalPrincipal + calculatedInterest;
 
   const lastReceipt = useMemo(() => {
     if (!previewBill) return null;
@@ -180,7 +180,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
               }
           }
 
-          const residentTotal = residentItems.reduce((sum, item) => sum + item.amount, 0) + residentInterest;
+          const residentPrincipal = residentItems.reduce((sum, item) => sum + item.amount, 0);
 
           return {
             id: `B${Date.now()}-${resident.unitNumber}`,
@@ -190,7 +190,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             unitNumber: resident.unitNumber,
             items: residentItems,
             interest: residentInterest,
-            totalAmount: residentTotal,
+            totalAmount: residentPrincipal + residentInterest,
             dueDate: dueDate,
             status: PaymentStatus.PENDING,
             generatedDate: billDate,
@@ -326,53 +326,70 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredBills.map(bill => (
-          <div key={bill.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <span className="text-[10px] font-mono text-slate-400 tracking-tighter">{bill.id}</span>
-                <h3 className="font-bold text-slate-800">{bill.unitNumber} - {bill.residentName}</h3>
-                <p className="text-xs text-indigo-600 font-bold flex items-center gap-1 mt-1">
-                   <Calendar size={12} />
-                   {formatBillingMonth(bill.billMonth)}
-                </p>
-              </div>
-              <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${getStatusColor(bill.status)} uppercase`}>
-                {bill.status}
-              </span>
-            </div>
-            
-            <div className="space-y-2 mb-4 text-sm mt-4 border-t border-slate-50 pt-4">
-               {bill.items.map((item, i) => (
-                 <div key={i} className="flex justify-between"><span className="text-slate-500">{item.description}</span><span className="text-slate-800 font-medium">Rs. {item.amount.toLocaleString()}</span></div>
-               ))}
-               {bill.interest > 0 && (
-                   <div className="flex justify-between text-red-600 font-medium"><span>Interest on Arrears</span><span>Rs. {bill.interest.toLocaleString()}</span></div>
-               )}
-               <div className="flex justify-between font-bold border-t border-slate-100 pt-2 text-indigo-900"><span>Total Bill</span><span>Rs. {bill.totalAmount.toLocaleString()}</span></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 font-bold uppercase mb-4 px-1">
+        {filteredBills.map(bill => {
+          const principal = bill.items.reduce((s, i) => s + i.amount, 0);
+          return (
+            <div key={bill.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative">
+              <div className="flex justify-between items-start mb-2">
                 <div>
-                   <p>Bill Date</p>
-                   <p className="text-slate-700 text-xs mt-0.5">{bill.generatedDate}</p>
+                  <span className="text-[10px] font-mono text-slate-400 tracking-tighter">{bill.id}</span>
+                  <h3 className="font-bold text-slate-800">{bill.unitNumber} - {bill.residentName}</h3>
+                  <p className="text-xs text-indigo-600 font-bold flex items-center gap-1 mt-1">
+                    <Calendar size={12} />
+                    {formatBillingMonth(bill.billMonth)}
+                  </p>
                 </div>
-                <div className="text-right">
-                   <p>Due Date</p>
-                   <p className="text-red-600 text-xs mt-0.5">{bill.dueDate}</p>
+                <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${getStatusColor(bill.status)} uppercase`}>
+                  {bill.status}
+                </span>
+              </div>
+              
+              <div className="space-y-1.5 mb-4 text-sm mt-4 border-t border-slate-50 pt-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Billing Breakdown</p>
+                {bill.items.map((item, i) => (
+                  <div key={i} className="flex justify-between text-xs"><span className="text-slate-500">{item.description}</span><span className="text-slate-800">Rs. {item.amount.toLocaleString()}</span></div>
+                ))}
+                
+                <div className="flex justify-between font-bold border-t border-slate-100 pt-2 text-slate-600">
+                    <span>Principal Amount</span>
+                    <span>Rs. {principal.toLocaleString()}</span>
                 </div>
-            </div>
+                
+                {bill.interest > 0 && (
+                    <div className="flex justify-between text-red-600 font-bold">
+                        <span>Interest on Arrears</span>
+                        <span>Rs. {bill.interest.toLocaleString()}</span>
+                    </div>
+                )}
+                
+                <div className="flex justify-between font-black border-t-2 border-indigo-100 pt-2 text-indigo-900 text-base">
+                    <span>Grand Total</span>
+                    <span>Rs. {bill.totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
 
-            <div className="flex gap-2 mt-4">
-               {bill.status !== PaymentStatus.PAID ? (
-                  <button onClick={() => handlePaymentClick(bill)} className="flex-1 bg-slate-800 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-sm"><CreditCard size={14} /> Record Payment</button>
-               ) : (
-                  <button onClick={() => handlePreview(bill)} className="flex-1 bg-green-50 text-green-700 border border-green-200 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"><Receipt size={14} /> View Bill</button>
-               )}
-               <button onClick={() => handlePreview(bill)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-100"><Eye size={18} /></button>
+              <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 font-bold uppercase mb-4 px-1">
+                  <div>
+                    <p>Bill Date</p>
+                    <p className="text-slate-700 text-xs mt-0.5">{bill.generatedDate}</p>
+                  </div>
+                  <div className="text-right">
+                    <p>Due Date</p>
+                    <p className="text-red-600 text-xs mt-0.5">{bill.dueDate}</p>
+                  </div>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                {bill.status !== PaymentStatus.PAID ? (
+                    <button onClick={() => handlePaymentClick(bill)} className="flex-1 bg-slate-800 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-sm"><CreditCard size={14} /> Record Payment</button>
+                ) : (
+                    <button onClick={() => handlePreview(bill)} className="flex-1 bg-green-50 text-green-700 border border-green-200 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"><Receipt size={14} /> View Bill</button>
+                )}
+                <button onClick={() => handlePreview(bill)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-100"><Eye size={18} /></button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* --- SETTINGS MODAL --- */}
@@ -385,7 +402,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 </div>
                 
                 <div className="space-y-8">
-                    {/* GLOBAL DEFAULT HEADS */}
                     <div>
                         <div className="flex justify-between items-center mb-3">
                             <label className="block text-sm font-black text-indigo-700 uppercase tracking-wider">Default Charges for All Members</label>
@@ -457,7 +473,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       {/* --- PREVIEW MODAL --- */}
       {isPreviewOpen && previewBill && (
         <div className="fixed inset-0 bg-slate-900/90 flex flex-col items-center z-[90] p-4 overflow-y-auto backdrop-blur-md">
-           {/* Preview Controls */}
            <div className="sticky top-0 w-full max-w-4xl bg-white border border-slate-200 rounded-xl p-4 mb-6 shadow-2xl flex flex-wrap justify-between items-center gap-4 z-10">
                 <div className="flex items-center gap-4">
                     <label className="text-sm font-bold text-slate-700">Bill Format:</label>
@@ -478,7 +493,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
            </div>
 
            <div id="invoice-render" className="bg-white w-[210mm] min-h-[297mm] p-10 shadow-2xl mx-auto flex flex-col text-slate-800 border relative">
-                {/* --- MAIN BILL SECTION --- */}
                 <div className="flex-1">
                     <div className="flex justify-between items-start border-b-2 border-indigo-600 pb-6 mb-8">
                         <div>
@@ -526,16 +540,22 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                     <td className="p-4 text-right font-semibold">Rs. {item.amount.toLocaleString()}</td>
                                 </tr>
                             ))}
+                            
+                            {/* --- SEPARATE PRINCIPAL & INTEREST --- */}
+                            <tr className="bg-slate-50 font-bold">
+                                <td className="p-4 text-right text-slate-500 uppercase text-xs">Sub-total (Principal Amount)</td>
+                                <td className="p-4 text-right font-black border-l border-slate-200">Rs. {previewBill.items.reduce((s, i) => s + i.amount, 0).toLocaleString()}</td>
+                            </tr>
                             {previewBill.interest > 0 && (
-                                <tr className="hover:bg-red-50">
-                                    <td className="p-4 text-red-700 font-bold italic">Interest on Arrears (Default Charges)</td>
-                                    <td className="p-4 text-right font-bold text-red-700">Rs. {previewBill.interest.toLocaleString()}</td>
+                                <tr className="hover:bg-red-50 border-t-2 border-red-100">
+                                    <td className="p-4 text-red-700 font-bold italic">Add: Interest on Arrears (Default Charges)</td>
+                                    <td className="p-4 text-right font-black text-red-700 border-l border-slate-200">Rs. {previewBill.interest.toLocaleString()}</td>
                                 </tr>
                             )}
                         </tbody>
                         <tfoot>
-                            <tr className="bg-indigo-50">
-                                <td className="p-4 text-right font-black uppercase text-indigo-900">Grand Total</td>
+                            <tr className="bg-indigo-50 border-t-4 border-white">
+                                <td className="p-4 text-right font-black uppercase text-indigo-900">Grand Total Payable</td>
                                 <td className="p-4 text-right font-black text-xl text-indigo-900 border-l-2 border-white">Rs. {previewBill.totalAmount.toLocaleString()}</td>
                             </tr>
                         </tfoot>
@@ -543,7 +563,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
                     <div className="grid grid-cols-2 gap-10 mt-12">
                         <div className="text-sm">
-                            <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Bank Details</h4>
+                            <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Bank Details for Payment</h4>
                             <p className="text-slate-600 whitespace-pre-line leading-relaxed">{activeSociety.bankDetails}</p>
                         </div>
                         <div className="text-center flex flex-col justify-end">
@@ -553,7 +573,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     </div>
                 </div>
 
-                {/* --- OPTIONAL: FOOTER NOTES --- */}
                 <div className={`mt-10 border-t-2 border-dashed border-slate-200 pt-6 ${previewTemplate === 'FOOTER_NOTES' ? 'bg-slate-50 p-6 rounded-xl border-solid border-2 border-indigo-100' : ''}`}>
                     <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Society Notes & Policy</h4>
                     <p className="text-xs text-slate-600 leading-relaxed italic whitespace-pre-wrap">{activeSociety.footerNote || 'Thank you for your timely payment.'}</p>
@@ -569,7 +588,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     )}
                 </div>
 
-                {/* --- OPTIONAL: BOTTOM RECEIPT --- */}
                 {previewTemplate === 'BILL_WITH_RECEIPT' && (
                     <div className="mt-auto pt-10 border-t-4 border-double border-slate-300">
                         <div className="flex justify-between items-center mb-4">
@@ -616,7 +634,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Plus className="text-indigo-600" /> Bill Generation Wizard</h2>
             
             <form onSubmit={handleGenerate} className="space-y-6">
-                {/* RANGE SELECTION */}
                 <div className="bg-slate-50 p-1 rounded-xl flex gap-1 border border-slate-200">
                     <button 
                         type="button"
@@ -663,7 +680,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     </div>
                 </div>
                 
-                {/* INTEREST CALCULATION SECTION */}
                 <div className="bg-red-50 p-4 rounded-xl border border-red-100">
                     <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
@@ -702,7 +718,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     )}
                 </div>
 
-                {/* DATES SECTION */}
                 <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div>
                         <label className="block text-xs font-black text-slate-400 uppercase mb-1">Bill Issue Date *</label>
@@ -714,7 +729,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     </div>
                 </div>
                 
-                {/* Bill Items Section */}
                 <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div className="flex justify-between items-center"><h3 className="text-xs font-bold text-slate-400 uppercase">Billing Heads (Auto-populated)</h3><button type="button" onClick={addItem} className="text-indigo-600 text-xs font-bold flex items-center gap-1"><Plus size={14} /> Add Head</button></div>
                     {items.map((item, idx) => (
