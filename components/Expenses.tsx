@@ -72,7 +72,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h2 className="text-xl font-semibold text-slate-800">Ledger</h2>
-            <p className="text-sm text-slate-500 mt-1">General Expenses & Personal Member Accounts</p>
+            <p className="text-sm text-slate-500 mt-1">General Expenses & Members Accounts</p>
         </div>
         {activeTab === 'GENERAL' && (
             <button 
@@ -96,7 +96,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
             onClick={() => setActiveTab('PERSONAL')}
             className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'PERSONAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
-              <Users size={16} /> Personal Ledger
+              <Users size={16} /> Members Ledger
           </button>
       </div>
 
