@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, DollarSign, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -108,6 +108,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const handleOpenGenerateModal = () => {
       setItems([{ id: Date.now().toString(), description: 'Maintenance Charges', type: 'Fixed', rate: 0, amount: 0 }]);
       setCustomBillNotes([]);
+      setBillDate(new Date().toISOString().split('T')[0]);
+      setBillingMonth(new Date().toISOString().slice(0, 7));
       setIsModalOpen(true);
   };
 
@@ -216,28 +218,45 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredBills.map(bill => (
           <div key={bill.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative">
-            <div className="flex justify-between items-start mb-4">
+            <div className="flex justify-between items-start mb-2">
               <div>
-                <span className="text-xs font-mono text-slate-400">{bill.id}</span>
+                <span className="text-[10px] font-mono text-slate-400 tracking-tighter">{bill.id}</span>
                 <h3 className="font-bold text-slate-800">{bill.unitNumber} - {bill.residentName}</h3>
+                <p className="text-xs text-indigo-600 font-bold flex items-center gap-1 mt-1">
+                   <Calendar size={12} />
+                   {formatBillingMonth(bill.billMonth)}
+                </p>
               </div>
-              <span className={`px-2 py-1 rounded-full text-xs font-bold border ${getStatusColor(bill.status)}`}>
+              <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${getStatusColor(bill.status)} uppercase`}>
                 {bill.status}
               </span>
             </div>
-            <div className="space-y-2 mb-4 text-sm">
+            
+            <div className="space-y-2 mb-4 text-sm mt-4 border-t border-slate-50 pt-4">
                {bill.items.map((item, i) => (
                  <div key={i} className="flex justify-between"><span className="text-slate-500">{item.description}</span><span className="text-slate-800 font-medium">₹{item.amount.toLocaleString()}</span></div>
                ))}
-               <div className="flex justify-between font-bold border-t border-slate-100 pt-2"><span>Total</span><span>₹{bill.totalAmount.toLocaleString()}</span></div>
+               <div className="flex justify-between font-bold border-t border-slate-100 pt-2 text-indigo-900"><span>Total Bill</span><span>₹{bill.totalAmount.toLocaleString()}</span></div>
             </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 font-bold uppercase mb-4 px-1">
+                <div>
+                   <p>Bill Date</p>
+                   <p className="text-slate-700 text-xs mt-0.5">{bill.generatedDate}</p>
+                </div>
+                <div className="text-right">
+                   <p>Due Date</p>
+                   <p className="text-red-600 text-xs mt-0.5">{bill.dueDate}</p>
+                </div>
+            </div>
+
             <div className="flex gap-2 mt-4">
                {bill.status !== PaymentStatus.PAID ? (
                   <button onClick={() => handlePaymentClick(bill)} className="flex-1 bg-slate-800 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-sm"><CreditCard size={14} /> Record Payment</button>
                ) : (
                   <button onClick={() => handlePreview(bill)} className="flex-1 bg-green-50 text-green-700 border border-green-200 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"><Receipt size={14} /> View Bill</button>
                )}
-               <button onClick={() => handlePreview(bill)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Eye size={18} /></button>
+               <button onClick={() => handlePreview(bill)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-100"><Eye size={18} /></button>
             </div>
           </div>
         ))}
@@ -307,10 +326,10 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         </div>
                         <div className="text-right">
                             <h2 className="text-3xl font-black text-slate-900">INVOICE</h2>
-                            <div className="mt-4 text-sm space-y-1">
-                                <p>Bill No: <span className="font-bold">{previewBill.id}</span></p>
-                                <p>Date: <span className="font-bold">{previewBill.generatedDate}</span></p>
-                                <p>For: <span className="font-bold">{formatBillingMonth(previewBill.billMonth)}</span></p>
+                            <div className="mt-4 text-sm space-y-1 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <p className="flex justify-between gap-4"><span>Bill No:</span> <span className="font-bold">{previewBill.id}</span></p>
+                                <p className="flex justify-between gap-4"><span>Bill Date:</span> <span className="font-bold">{previewBill.generatedDate}</span></p>
+                                <p className="flex justify-between gap-4"><span>Bill Period:</span> <span className="font-bold text-indigo-700">{formatBillingMonth(previewBill.billMonth)}</span></p>
                             </div>
                         </div>
                     </div>
@@ -437,19 +456,34 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       {/* --- GENERATE MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-3xl shadow-2xl overflow-y-auto max-h-[90vh]">
             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Plus className="text-indigo-600" /> New Bill Generation</h2>
             <form onSubmit={handleSingleGenerate} className="space-y-6">
                 <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Select Resident Member *</label>
-                    <select className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all" required value={selectedResidentId} onChange={e => handleResidentChange(e.target.value)}>
+                    <label className="block text-xs font-black text-slate-400 uppercase mb-2">Select Resident Member *</label>
+                    <select className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-slate-800" required value={selectedResidentId} onChange={e => handleResidentChange(e.target.value)}>
                         <option value="">-- Choose Member --</option>
                         {residents.map(r => <option key={r.id} value={r.id}>{r.unitNumber} - {r.name}</option>)}
                     </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-sm font-bold text-slate-700 mb-1">Billing Month</label><input type="month" className="w-full p-3 border border-slate-300 rounded-xl" value={billingMonth} onChange={e => setBillingMonth(e.target.value)}/></div>
-                    <div><label className="block text-sm font-bold text-slate-700 mb-1">Due Date</label><input type="date" required className="w-full p-3 border border-slate-300 rounded-xl" value={dueDate} onChange={e => setDueDate(e.target.value)}/></div>
+                
+                {/* DATES & PERIOD SECTION */}
+                <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase mb-1">Bill For Month *</label>
+                        <input type="month" className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-indigo-700" value={billingMonth} onChange={e => setBillingMonth(e.target.value)}/>
+                        <p className="text-[10px] text-slate-400 mt-1 italic">Period coverage</p>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase mb-1">Bill Issue Date *</label>
+                        <input type="date" required className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold" value={billDate} onChange={e => setBillDate(e.target.value)}/>
+                        <p className="text-[10px] text-slate-400 mt-1 italic">Date of generation</p>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase mb-1">Due Date *</label>
+                        <input type="date" required className="w-full p-3 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-red-600" value={dueDate} onChange={e => setDueDate(e.target.value)}/>
+                        <p className="text-[10px] text-slate-400 mt-1 italic">Late fee threshold</p>
+                    </div>
                 </div>
                 
                 {/* Bill Items Section */}
