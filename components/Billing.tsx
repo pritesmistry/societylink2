@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent } from 'lucide-react';
+import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 declare global {
@@ -28,6 +28,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isGatewayOpen, setIsGatewayOpen] = useState(false);
 
   const [previewBill, setPreviewBill] = useState<Bill | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<'TOP_BILL' | 'BILL_WITH_RECEIPT' | 'FOOTER_NOTES'>('TOP_BILL');
@@ -53,6 +54,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   // Settings State
   const [tempFooterNote, setTempFooterNote] = useState(activeSociety.footerNote || '');
   const [tempBillingHeads, setTempBillingHeads] = useState<BillItem[]>(activeSociety.billingHeads || []);
+
+  // Online Payment Flow States
+  const [selectedBillForPay, setSelectedBillForPay] = useState<Bill | null>(null);
+  const [paymentStep, setPaymentStep] = useState<'METHODS' | 'PROCESSING' | 'SUCCESS'>('METHODS');
+  const [selectedMethod, setSelectedMethod] = useState<'UPI' | 'CARD' | 'NB'>('UPI');
 
   const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
 
@@ -215,6 +221,31 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setIsPaymentModalOpen(true);
   };
 
+  const handlePayNow = (bill: Bill) => {
+      setSelectedBillForPay(bill);
+      setPaymentStep('METHODS');
+      setIsGatewayOpen(true);
+  };
+
+  const processMockPayment = () => {
+      setPaymentStep('PROCESSING');
+      setTimeout(() => {
+          if (selectedBillForPay) {
+              onUpdateBill({
+                  ...selectedBillForPay,
+                  status: PaymentStatus.PAID,
+                  paymentDetails: {
+                      date: new Date().toISOString().split('T')[0],
+                      mode: selectedMethod === 'UPI' ? 'UPI' : (selectedMethod === 'CARD' ? 'Bank Transfer' : 'Bank Transfer'),
+                      reference: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+                      remarks: `Online Payment via ${selectedMethod}`
+                  }
+              });
+              setPaymentStep('SUCCESS');
+          }
+      }, 2500);
+  };
+
   const [selectedBillForPayment, setSelectedBillForPayment] = useState<Bill | null>(null);
   const [paymentForm, setPaymentForm] = useState<PaymentDetails>({
       date: new Date().toISOString().split('T')[0],
@@ -329,7 +360,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         {filteredBills.map(bill => {
           const principal = bill.items.reduce((s, i) => s + i.amount, 0);
           return (
-            <div key={bill.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative">
+            <div key={bill.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative group">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <span className="text-[10px] font-mono text-slate-400 tracking-tighter">{bill.id}</span>
@@ -381,16 +412,182 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
               <div className="flex gap-2 mt-4">
                 {bill.status !== PaymentStatus.PAID ? (
-                    <button onClick={() => handlePaymentClick(bill)} className="flex-1 bg-slate-800 text-white py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-900 transition-colors shadow-sm"><CreditCard size={14} /> Record Payment</button>
+                    <div className="flex flex-col w-full gap-2">
+                        <button 
+                            onClick={() => handlePayNow(bill)} 
+                            className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-xs font-black flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-md active:scale-95"
+                        >
+                            <Zap size={14} fill="currentColor" /> Pay Online Now
+                        </button>
+                        <button 
+                            onClick={() => handlePaymentClick(bill)} 
+                            className="w-full bg-slate-100 text-slate-600 border border-slate-200 py-2 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors"
+                        >
+                            <Receipt size={14} /> Record Manual Payment
+                        </button>
+                    </div>
                 ) : (
-                    <button onClick={() => handlePreview(bill)} className="flex-1 bg-green-50 text-green-700 border border-green-200 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"><Receipt size={14} /> View Bill</button>
+                    <button onClick={() => handlePreview(bill)} className="flex-1 bg-green-50 text-green-700 border border-green-200 py-2.5 rounded-lg text-xs font-black flex items-center justify-center gap-2 hover:bg-green-100 transition-colors">
+                        <Check size={14} /> Payment Settled
+                    </button>
                 )}
-                <button onClick={() => handlePreview(bill)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-100"><Eye size={18} /></button>
+                <button onClick={() => handlePreview(bill)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-100 h-fit self-end">
+                    <Eye size={18} />
+                </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* --- MOCK PAYMENT GATEWAY MODAL --- */}
+      {isGatewayOpen && selectedBillForPay && (
+          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[110] backdrop-blur-md p-4">
+              <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in duration-300">
+                  {/* Header */}
+                  <div className="bg-indigo-600 p-6 text-white flex justify-between items-start">
+                      <div>
+                          <div className="flex items-center gap-2 mb-1">
+                              <ShieldCheck size={16} />
+                              <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">Secure Checkout</span>
+                          </div>
+                          <h2 className="text-xl font-black">SocietyLink Pay</h2>
+                          <p className="text-xs opacity-70 mt-1">{activeSociety.name}</p>
+                      </div>
+                      <div className="text-right">
+                          <p className="text-[10px] font-bold uppercase opacity-80">Amount Payable</p>
+                          <p className="text-2xl font-black">₹{selectedBillForPay.totalAmount.toLocaleString()}</p>
+                      </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-8 min-h-[400px] flex flex-col">
+                      {paymentStep === 'METHODS' && (
+                          <div className="space-y-6 animate-fade-in">
+                              <div className="flex justify-between items-center">
+                                  <h3 className="font-bold text-slate-800">Select Payment Method</h3>
+                                  <div className="flex gap-1">
+                                      <Lock size={12} className="text-green-500" />
+                                      <span className="text-[10px] font-bold text-green-600 uppercase">Encrypted</span>
+                                  </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-3">
+                                  <button 
+                                      onClick={() => setSelectedMethod('UPI')}
+                                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${selectedMethod === 'UPI' ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-slate-100 hover:bg-slate-50'}`}
+                                  >
+                                      <div className={`p-3 rounded-full ${selectedMethod === 'UPI' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                          <Smartphone size={24} />
+                                      </div>
+                                      <div className="flex-1">
+                                          <p className="font-bold text-slate-800">UPI / GPay / PhonePe</p>
+                                          <p className="text-xs text-slate-500">Scan QR or enter UPI ID</p>
+                                      </div>
+                                      {selectedMethod === 'UPI' && <Check size={20} className="text-indigo-600" />}
+                                  </button>
+
+                                  <button 
+                                      onClick={() => setSelectedMethod('CARD')}
+                                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${selectedMethod === 'CARD' ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-slate-100 hover:bg-slate-50'}`}
+                                  >
+                                      <div className={`p-3 rounded-full ${selectedMethod === 'CARD' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                          <CreditCard size={24} />
+                                      </div>
+                                      <div className="flex-1">
+                                          <p className="font-bold text-slate-800">Card Payment</p>
+                                          <p className="text-xs text-slate-500">Visa, Mastercard, RuPay</p>
+                                      </div>
+                                      {selectedMethod === 'CARD' && <Check size={20} className="text-indigo-600" />}
+                                  </button>
+
+                                  <button 
+                                      onClick={() => setSelectedMethod('NB')}
+                                      className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all text-left ${selectedMethod === 'NB' ? 'border-indigo-600 bg-indigo-50 shadow-md' : 'border-slate-100 hover:bg-slate-50'}`}
+                                  >
+                                      <div className={`p-3 rounded-full ${selectedMethod === 'NB' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                          <Landmark size={24} />
+                                      </div>
+                                      <div className="flex-1">
+                                          <p className="font-bold text-slate-800">Net Banking</p>
+                                          <p className="text-xs text-slate-500">Choose from 50+ Banks</p>
+                                      </div>
+                                      {selectedMethod === 'NB' && <Check size={20} className="text-indigo-600" />}
+                                  </button>
+                              </div>
+
+                              {selectedMethod === 'UPI' && (
+                                  <div className="bg-slate-50 p-4 rounded-2xl flex flex-col items-center border border-slate-200 mt-4 animate-in slide-in-from-top-2">
+                                      <div className="bg-white p-3 rounded-xl shadow-sm mb-3">
+                                          <QrCode size={120} className="text-slate-800" />
+                                      </div>
+                                      <p className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Scan with any UPI App</p>
+                                  </div>
+                              )}
+
+                              <div className="mt-auto pt-6 border-t border-slate-100">
+                                  <button 
+                                      onClick={processMockPayment}
+                                      className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                                  >
+                                      Pay ₹{selectedBillForPay.totalAmount.toLocaleString()}
+                                      <ArrowRight size={20} />
+                                  </button>
+                                  <button 
+                                      onClick={() => setIsGatewayOpen(false)}
+                                      className="w-full mt-3 py-2 text-slate-400 font-bold text-xs hover:text-slate-600"
+                                  >
+                                      Cancel and return to SocietyLink
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+
+                      {paymentStep === 'PROCESSING' && (
+                          <div className="flex-1 flex flex-col items-center justify-center py-12 animate-in fade-in zoom-in duration-500">
+                              <div className="relative mb-8">
+                                  <div className="w-24 h-24 rounded-full border-4 border-slate-100 border-t-indigo-600 animate-spin"></div>
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                      <Shield size={32} className="text-indigo-600" />
+                                  </div>
+                              </div>
+                              <h3 className="text-xl font-black text-slate-800">Verifying Transaction</h3>
+                              <p className="text-slate-500 mt-2 text-center text-sm px-8">Please do not close this window or click back button while we confirm your payment with the bank.</p>
+                          </div>
+                      )}
+
+                      {paymentStep === 'SUCCESS' && (
+                          <div className="flex-1 flex flex-col items-center justify-center py-8 animate-in fade-in zoom-in duration-500">
+                              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-6 text-green-600 shadow-inner">
+                                  <Check size={48} strokeWidth={3} />
+                              </div>
+                              <h3 className="text-2xl font-black text-slate-800">Payment Successful!</h3>
+                              <p className="text-slate-500 mt-1 text-center text-sm mb-8 px-4">Your maintenance dues have been settled. A digital receipt has been generated and sent to your email.</p>
+                              
+                              <div className="w-full bg-slate-50 rounded-2xl p-6 border border-slate-200 mb-8 space-y-3">
+                                  <div className="flex justify-between text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Reference</span><span className="font-mono font-bold text-slate-700">TXN_{Math.random().toString(36).substr(2, 9).toUpperCase()}</span></div>
+                                  <div className="flex justify-between text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Date & Time</span><span className="font-bold text-slate-700">{new Date().toLocaleString()}</span></div>
+                                  <div className="flex justify-between text-sm"><span className="text-slate-400 font-bold uppercase text-[10px]">Paid Amount</span><span className="font-black text-indigo-600">₹{selectedBillForPay.totalAmount.toLocaleString()}</span></div>
+                              </div>
+
+                              <button 
+                                  onClick={() => setIsGatewayOpen(false)}
+                                  className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-slate-800 transition-all shadow-lg"
+                              >
+                                  Go to Dashboard
+                              </button>
+                          </div>
+                      )}
+                  </div>
+
+                  {/* Footer Security */}
+                  <div className="bg-slate-50 px-8 py-4 border-t border-slate-100 flex items-center justify-center gap-6 opacity-60">
+                      <div className="flex items-center gap-1"><Shield size={12} /><span className="text-[8px] font-black uppercase">PCI-DSS Compliant</span></div>
+                      <div className="flex items-center gap-1"><Lock size={12} /><span className="text-[8px] font-black uppercase">256-bit SSL</span></div>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* --- SETTINGS MODAL --- */}
       {isSettingsOpen && (
@@ -541,7 +738,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                 </tr>
                             ))}
                             
-                            {/* --- SEPARATE PRINCIPAL & INTEREST --- */}
                             <tr className="bg-slate-50 font-bold">
                                 <td className="p-4 text-right text-slate-500 uppercase text-xs">Sub-total (Principal Amount)</td>
                                 <td className="p-4 text-right font-black border-l border-slate-200">Rs. {previewBill.items.reduce((s, i) => s + i.amount, 0).toLocaleString()}</td>
@@ -771,11 +967,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         </div>
       )}
 
-      {/* --- PAYMENT MODAL --- */}
+      {/* --- MANUAL PAYMENT MODAL --- */}
       {isPaymentModalOpen && selectedBillForPayment && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[80] backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-black mb-4 flex items-center gap-2 text-green-700"><CreditCard /> Settle Dues</h2>
+            <h2 className="text-xl font-black mb-4 flex items-center gap-2 text-green-700"><Receipt /> Record Manual Entry</h2>
             <p className="text-sm text-slate-500 mb-6">Confirm payment for <span className="font-black text-slate-800">{selectedBillForPayment.unitNumber} - {selectedBillForPayment.residentName}</span></p>
             <form onSubmit={(e) => {
               e.preventDefault();
