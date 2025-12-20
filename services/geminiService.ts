@@ -1,103 +1,112 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const getAIClient = () => {
-  if (!process.env.API_KEY) {
-    console.warn("API_KEY is not set in environment variables.");
-    return null;
-  }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
-};
-
+/**
+ * Generates a formal housing society notice using Gemini 3 Flash.
+ * Adheres to direct API key usage and latest response property patterns.
+ */
 export const generateNoticeDraft = async (topic: string, audience: string, tone: string): Promise<string> => {
-  const ai = getAIClient();
-  if (!ai) return "API Key missing. Cannot generate notice.";
-
-  const prompt = `
-    Write a professional notice for a housing society.
-    Topic: ${topic}
-    Target Audience: ${audience}
-    Tone: ${tone}
-    
-    Format the output as a clean, ready-to-send message. Do not add markdown code blocks around it.
-  `;
-
   try {
-    // Fixed: Using the recommended gemini-3-flash-preview model for basic text generation
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    return response.text || "Failed to generate content.";
-  } catch (error) {
-    console.error("Error generating notice:", error);
-    return "An error occurred while communicating with the AI.";
-  }
-};
-
-export const analyzeFinancials = async (expenses: any[], bills: any[]): Promise<string> => {
-  const ai = getAIClient();
-  if (!ai) return "API Key missing. Cannot analyze financials.";
-
-  const expenseSummary = JSON.stringify(expenses.slice(0, 20)); // Sending a subset to avoid token limits if list is huge
-  const billSummary = JSON.stringify(bills.slice(0, 20));
-
-  const prompt = `
-    You are a financial analyst for a housing society.
-    Here is the recent expense data: ${expenseSummary}
-    Here is the recent billing/income data: ${billSummary}
-
-    Please provide a brief executive summary of the society's financial health.
-    Identify:
-    1. Major spending categories.
-    2. Payment collection efficiency (Paid vs Pending/Overdue).
-    3. One suggestion for cost optimization or revenue improvement.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    Keep it concise and professional. Use markdown for formatting (bullet points, bold text).
-  `;
-
-  try {
-    // Fixed: Using the recommended gemini-3-flash-preview model for analysis tasks
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-    });
-    return response.text || "No analysis generated.";
-  } catch (error) {
-    console.error("Error analyzing financials:", error);
-    return "An error occurred during analysis.";
-  }
-};
-
-export const generateMinutesFromNotes = async (rawNotes: string): Promise<string> => {
-    const ai = getAIClient();
-    if (!ai) return "API Key missing. Cannot generate minutes.";
-  
     const prompt = `
-      You are an expert secretary for a housing society. 
-      Convert the following rough notes from a meeting into formal Meeting Minutes.
-  
-      Raw Notes:
-      ${rawNotes}
-  
-      Structure the output clearly with the following sections (if applicable based on notes):
-      1. Agenda
-      2. Discussion Points
-      3. Decisions Made
-      4. Action Items (Owners & Deadlines)
+      You are an expert Society Secretary and Communications Manager for a high-end residential complex.
+      Write a formal notice based on the following:
       
-      Keep the tone professional and objective. Do not add markdown code blocks.
+      TOPIC: ${topic}
+      TARGET AUDIENCE: ${audience}
+      TONE: ${tone}
+      
+      Requirements:
+      1. Use professional English.
+      2. Include placeholders like [Date], [Time], and [Venue] where appropriate.
+      3. Structure with a clear Subject line at the top.
+      4. Keep it concise yet comprehensive.
+      5. End with a standard "By Order of Managing Committee" signature block.
+      
+      Return ONLY the notice text. Do not include markdown code blocks.
     `;
-  
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+      config: {
+        temperature: 0.7,
+        topP: 0.95,
+      }
+    });
+
+    return response.text || "Failed to generate a notice draft. Please try again.";
+  } catch (error) {
+    console.error("Error in generateNoticeDraft:", error);
+    if (error instanceof Error && error.message.includes("API key")) {
+      return "Error: API Key is missing or invalid. Please check your environment.";
+    }
+    return "An error occurred while generating the notice. Please check your connection.";
+  }
+};
+
+/**
+ * Analyzes financial health based on billing and expenses.
+ */
+export const analyzeFinancials = async (expenses: any[], bills: any[]): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const expenseSummary = JSON.stringify(expenses.slice(0, 30));
+    const billSummary = JSON.stringify(bills.slice(0, 30));
+
+    const prompt = `
+      Analyze this housing society financial data:
+      Expenses: ${expenseSummary}
+      Billing: ${billSummary}
+
+      Provide:
+      1. A summary of the current financial state.
+      2. Identification of the highest spending categories.
+      3. Collection efficiency insights.
+      4. Three actionable suggestions to reduce costs or increase reserves.
+      
+      Format with professional markdown.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    });
+    
+    return response.text || "Financial analysis unavailable.";
+  } catch (error) {
+    console.error("Error in analyzeFinancials:", error);
+    return "Could not perform financial analysis at this time.";
+  }
+};
+
+/**
+ * Formats raw meeting notes into professional minutes.
+ */
+export const generateMinutesFromNotes = async (rawNotes: string): Promise<string> => {
     try {
-      // Fixed: Using the recommended gemini-3-flash-preview model for minutes generation
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `
+        Convert these raw meeting notes into formal Housing Society Meeting Minutes:
+        "${rawNotes}"
+
+        Structure:
+        - Agenda
+        - Major Discussion Points
+        - Resolutions Passed
+        - Action Items (Owner & Due Date)
+        
+        Tone: Formal and objective.
+      `;
+
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
       });
-      return response.text || "Failed to generate minutes.";
+      return response.text || "Failed to format minutes.";
     } catch (error) {
-      console.error("Error generating minutes:", error);
-      return "An error occurred while communicating with the AI.";
+      console.error("Error in generateMinutesFromNotes:", error);
+      return "Error processing minutes.";
     }
-  };
+};
