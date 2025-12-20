@@ -43,20 +43,39 @@ export const generateMinutesDraft = async (topic: string, audience: string, tone
 export const generateStatutoryDraft = async (documentType: string, context: string, tone: string): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `Draft professional ${documentType} for context: ${context}, Tone: ${tone}.`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+    });
+    return response.text || "AI Assistant was unable to draft this document.";
+  } catch (error) {
+    return "An error occurred.";
+  }
+};
+
+/**
+ * AI-powered report analysis and auditor commentary.
+ */
+export const generateReportCommentary = async (reportType: string, summaryData: any): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const prompt = `
-      You are a legal consultant specializing in Housing Society Bye-laws and the Co-operative Societies Act.
-      Draft a professional ${documentType} based on the following context:
+      You are a Chartered Accountant and Statutory Auditor for a Housing Society. 
+      Analyze the following ${reportType} data and provide a formal "Auditor's Commentary & Notes to Accounts".
       
-      CONTEXT: ${context}
-      TONE: ${tone}
+      REPORT DATA:
+      ${JSON.stringify(summaryData)}
       
       Requirements:
-      1. Use formal legal terminology suitable for statutory records.
-      2. Ensure it sounds authoritative yet compliant.
-      3. Structure it according to standard regulatory formats.
-      4. If drafting a response to an audit objection, be specific and professional.
+      1. Identify significant year-on-year changes (if data provided).
+      2. Flag liquidity concerns (low cash vs high receivables).
+      3. Comment on the Surplus/Deficit trend.
+      4. Suggest 2 cost-saving measures based on specific expense categories.
+      5. Use professional, conservative accounting terminology.
       
-      Return the document text only.
+      Format the output with clear headings. Do not use markdown backticks.
     `;
 
     const response = await ai.models.generateContent({
@@ -64,10 +83,10 @@ export const generateStatutoryDraft = async (documentType: string, context: stri
       contents: prompt,
     });
 
-    return response.text || "AI Assistant was unable to draft this document.";
+    return response.text || "Unable to generate financial commentary.";
   } catch (error) {
-    console.error("Error in generateStatutoryDraft:", error);
-    return "An error occurred while communicating with the Smart Assistant.";
+    console.error("Error in generateReportCommentary:", error);
+    return "Audit AI is currently unavailable.";
   }
 };
 
@@ -77,68 +96,17 @@ export const generateStatutoryDraft = async (documentType: string, context: stri
 export const analyzeBankReconciliation = async (systemData: any[], bankData: any[]): Promise<any> => {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    const prompt = `
-      Analyze the following two sets of financial transactions for a Housing Society and identify matches.
-      
-      SYSTEM RECORDS (Cash Book):
-      ${JSON.stringify(systemData)}
-      
-      BANK STATEMENT RECORDS:
-      ${JSON.stringify(bankData)}
-      
-      Tasks:
-      1. Find high-confidence matches (same or similar amount + date within 5 days).
-      2. Identify suspicious anomalies (e.g., bank charges not in system, double payments).
-      3. Suggest potential matches where amounts match but descriptions differ.
-      
-      Return a JSON object only.
-    `;
-
+    const prompt = `Analyze records for matches: SYSTEM: ${JSON.stringify(systemData)}, BANK: ${JSON.stringify(bankData)}. Return JSON with suggestedMatches, anomalies, summary.`;
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            suggestedMatches: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  systemId: { type: Type.STRING },
-                  bankId: { type: Type.STRING },
-                  confidence: { type: Type.STRING },
-                  reason: { type: Type.STRING }
-                },
-                required: ['systemId', 'bankId', 'reason']
-              }
-            },
-            anomalies: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  source: { type: Type.STRING, description: "BANK or SYSTEM" },
-                  note: { type: Type.STRING }
-                },
-                required: ['source', 'note']
-              }
-            },
-            summary: { type: Type.STRING }
-          },
-          required: ['suggestedMatches', 'anomalies', 'summary']
-        }
+        responseMimeType: 'application/json'
       }
     });
-
     return JSON.parse(response.text || '{}');
   } catch (error) {
-    console.error("Error in analyzeBankReconciliation:", error);
-    return { suggestedMatches: [], anomalies: [], summary: "Failed to perform AI analysis." };
+    return { suggestedMatches: [], anomalies: [], summary: "Failed analysis." };
   }
 };
 
