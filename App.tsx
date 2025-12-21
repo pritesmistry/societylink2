@@ -30,7 +30,7 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
   
-  // Centralized State (Simulating Database)
+  // Centralized State
   const [societies, setSocieties] = useState<Society[]>(MOCK_SOCIETIES);
   const [activeSocietyId, setActiveSocietyId] = useState<string>(MOCK_SOCIETIES[0].id);
   
@@ -55,37 +55,27 @@ const App: React.FC = () => {
   const activeMinutes = useMemo(() => minutes.filter(m => m.societyId === activeSocietyId), [minutes, activeSocietyId]);
   const activeAccountHeads = useMemo(() => accountHeads.filter(h => h.societyId === activeSocietyId), [accountHeads, activeSocietyId]);
 
-  // --- BALANCE CALCULATION LOGIC ---
+  // Balance Calculation
   const financialBalances = useMemo(() => {
       let cash = 0;
       let bank = 0;
 
-      // 1. Add Income from Bills (Collections)
       activeBills.forEach(b => {
           if (b.status === PaymentStatus.PAID && b.paymentDetails) {
-              if (b.paymentDetails.mode === 'Cash') {
-                  cash += b.totalAmount;
-              } else {
-                  bank += b.totalAmount; // UPI, Cheque, Bank Transfer
-              }
+              if (b.paymentDetails.mode === 'Cash') cash += b.totalAmount;
+              else bank += b.totalAmount;
           }
       });
 
-      // 2. Add Other Income (Receipt Vouchers)
       activeIncomes.forEach(i => {
-          if (i.mode === 'Cash') {
-              cash += i.amount;
-          } else {
-              bank += i.amount;
-          }
+          if (i.mode === 'Cash') cash += i.amount;
+          else bank += i.amount;
       });
 
-      // 3. Subtract Expenses
       activeExpenses.forEach(e => {
-          if (e.paymentMode === 'Cash') {
-              cash -= e.amount;
-          } else if (e.paymentMode !== 'Journal' && e.paymentMode !== 'Debit Note' && e.paymentMode !== 'Credit Note') {
-              bank -= e.amount; // Cheque, Online
+          if (e.paymentMode === 'Cash') cash -= e.amount;
+          else if (e.paymentMode !== 'Journal' && e.paymentMode !== 'Debit Note' && e.paymentMode !== 'Credit Note') {
+              bank -= e.amount;
           }
       });
 
@@ -95,7 +85,7 @@ const App: React.FC = () => {
   // Handlers
   const handleAddSociety = (society: Society) => {
     setSocieties(prev => [...prev, society]);
-    setActiveSocietyId(society.id); // Switch to new society
+    setActiveSocietyId(society.id);
   };
 
   const handleUpdateSociety = (updatedSociety: Society) => {
@@ -103,51 +93,50 @@ const App: React.FC = () => {
   };
 
   const handleDeleteSociety = (id: string) => {
-    if (societies.length <= 1) {
-      alert("Cannot delete the last society. You must have at least one active society.");
-      return;
-    }
-
-    if (window.confirm("Are you sure you want to delete this society? This will hide all associated residents and data.")) {
+    if (societies.length <= 1) return;
+    if (window.confirm("Delete this society? This will hide all associated data.")) {
        const newSocieties = societies.filter(s => s.id !== id);
        setSocieties(newSocieties);
-       
-       if (id === activeSocietyId) {
-         setActiveSocietyId(newSocieties[0].id);
-       }
+       if (id === activeSocietyId) setActiveSocietyId(newSocieties[0].id);
     }
   };
 
-  const handleAddResident = (resident: Resident) => {
-    setResidents(prev => [...prev, resident]);
+  const handleCopyMasterData = (sourceId: string, targetId: string, options: { copyHeads: boolean; copyMembers: boolean }) => {
+      if (options.copyHeads) {
+          const sourceHeads = accountHeads.filter(h => h.societyId === sourceId);
+          const newHeads = sourceHeads.map(h => ({
+              ...h,
+              id: `cpy-h-${Date.now()}-${Math.random()}`,
+              societyId: targetId
+          }));
+          setAccountHeads(prev => [...prev, ...newHeads]);
+      }
+
+      if (options.copyMembers) {
+          const sourceResidents = residents.filter(r => r.societyId === sourceId);
+          const newResidents = sourceResidents.map(r => ({
+              ...r,
+              id: `cpy-res-${Date.now()}-${Math.random()}`,
+              societyId: targetId
+          }));
+          setResidents(prev => [...prev, ...newResidents]);
+      }
+      
+      alert("Master replication complete!");
+      setActiveSocietyId(targetId);
+      setCurrentView('DASHBOARD');
   };
 
-  const handleBulkAddResidents = (newResidents: Resident[]) => {
-    setResidents(prev => [...prev, ...newResidents]);
-  };
-
-  const handleUpdateResident = (updatedResident: Resident) => {
-    setResidents(prev => prev.map(r => r.id === updatedResident.id ? updatedResident : r));
-  };
-
+  const handleAddResident = (resident: Resident) => setResidents(prev => [...prev, resident]);
+  const handleBulkAddResidents = (newResidents: Resident[]) => setResidents(prev => [...prev, ...newResidents]);
+  const handleUpdateResident = (updatedResident: Resident) => setResidents(prev => prev.map(r => r.id === updatedResident.id ? updatedResident : r));
   const handleDeleteResident = (id: string) => {
-    if(window.confirm("Are you sure you want to remove this resident?")) {
-      setResidents(prev => prev.filter(r => r.id !== id));
-    }
+    if(window.confirm("Remove this resident?")) setResidents(prev => prev.filter(r => r.id !== id));
   };
 
-  const handleGenerateBill = (bill: Bill) => {
-    setBills(prev => [bill, ...prev]);
-  };
-
-  const handleBulkAddBills = (newBills: Bill[]) => {
-    setBills(prev => [...newBills, ...prev]);
-  };
-
-  const handleUpdateBill = (updatedBill: Bill) => {
-    setBills(prev => prev.map(b => b.id === updatedBill.id ? updatedBill : b));
-  };
-
+  const handleGenerateBill = (bill: Bill) => setBills(prev => [bill, ...prev]);
+  const handleBulkAddBills = (newBills: Bill[]) => setBills(prev => [...newBills, ...prev]);
+  const handleUpdateBill = (updatedBill: Bill) => setBills(prev => prev.map(b => b.id === updatedBill.id ? updatedBill : b));
   const handleBulkUpdateBills = (updatedBills: Bill[]) => {
     setBills(prev => prev.map(b => {
       const updated = updatedBills.find(ub => ub.id === b.id);
@@ -155,31 +144,15 @@ const App: React.FC = () => {
     }));
   };
 
-  const handleAddExpense = (expense: Expense) => {
-    setExpenses(prev => [expense, ...prev]);
-  };
-
-  const handleAddIncome = (income: Income) => {
-    setIncomes(prev => [income, ...prev]);
-  };
-
-  const handleAddNotice = (notice: Notice) => {
-    setNotices(prev => [notice, ...prev]);
-  };
-
-  const handleAddMinute = (minute: MeetingMinutes) => {
-    setMinutes(prev => [minute, ...prev]);
-  };
-
+  const handleAddExpense = (expense: Expense) => setExpenses(prev => [expense, ...prev]);
+  const handleAddIncome = (income: Income) => setIncomes(prev => [income, ...prev]);
+  const handleAddNotice = (notice: Notice) => setNotices(prev => [notice, ...prev]);
+  const handleAddMinute = (minute: MeetingMinutes) => setMinutes(prev => [minute, ...prev]);
   const handleDeleteMinute = (id: string) => {
-      if(window.confirm("Are you sure you want to delete these minutes?")) {
-          setMinutes(prev => prev.filter(m => m.id !== id));
-      }
+      if(window.confirm("Delete these minutes?")) setMinutes(prev => prev.filter(m => m.id !== id));
   };
 
-  const handleAddAccountHead = (head: AccountHead) => {
-    setAccountHeads(prev => [...prev, head]);
-  };
+  const handleAddAccountHead = (head: AccountHead) => setAccountHeads(prev => [...prev, head]);
 
   const renderContent = () => {
     switch (currentView) {
@@ -194,6 +167,7 @@ const App: React.FC = () => {
                 onUpdateSociety={handleUpdateSociety}
                 onDeleteSociety={handleDeleteSociety}
                 onSelectSociety={(id) => { setActiveSocietyId(id); setCurrentView('DASHBOARD'); }}
+                onCopyMasterData={handleCopyMasterData}
                 balances={financialBalances}
             />
         );
@@ -341,53 +315,42 @@ const App: React.FC = () => {
       <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen relative">
         <header className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-100 transition-all">
           <div className="mb-4 md:mb-0">
-            <h2 className="text-2xl font-bold text-slate-800">
-              {currentView === 'AI_INSIGHTS' ? 'AI Analysis & Insights' : 
-               currentView === 'SOCIETIES' ? 'My Societies' :
-               currentView === 'REPORTS' ? 'Financial Reports' :
-               currentView === 'MINUTES' ? 'Meeting Minutes' :
-               currentView === 'RESIDENTS' ? 'Members' :
-               currentView === 'RECEIPTS' ? 'Members Receipts' :
-               currentView === 'INCOME' ? 'Receipt Voucher' :
-               currentView === 'EXPENSES' ? 'Ledger (Personal & General)' :
-               currentView === 'VOUCHERS' ? 'Payment Vouchers' :
-               currentView === 'TEMPLATES' ? 'Templates' :
-               currentView === 'STATUTORY_REGISTERS' ? 'Statutory Registers & Audit' :
-               currentView.charAt(0) + currentView.slice(1).toLowerCase().replace('_', ' ')}
+            <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tighter">
+              {currentView === 'AI_INSIGHTS' ? 'AI Financial Analysis' : 
+               currentView === 'SOCIETIES' ? 'Estate Registry' :
+               currentView.replace('_', ' ')}
             </h2>
-            <p className="text-slate-500 text-sm">Welcome back, Admin</p>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Admin Dashboard Control Panel</p>
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-            {/* Live Financial Stats in Header */}
             <div className="flex gap-4">
                 <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg border border-green-100" title="Cash Balance">
                     <Wallet size={18} className="text-green-600" />
                     <div>
-                        <p className="text-[10px] text-green-700 font-bold uppercase">Cash Bal</p>
-                        <p className="text-sm font-bold text-slate-800">Rs. {financialBalances.cash.toLocaleString()}</p>
+                        <p className="text-[10px] text-green-700 font-black uppercase">Cash</p>
+                        <p className="text-sm font-bold text-slate-800">₹{financialBalances.cash.toLocaleString()}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-100" title="Bank Balance">
                     <Landmark size={18} className="text-blue-600" />
                     <div>
-                        <p className="text-[10px] text-blue-700 font-bold uppercase">Bank Bal</p>
-                        <p className="text-sm font-bold text-slate-800">Rs. {financialBalances.bank.toLocaleString()}</p>
+                        <p className="text-[10px] text-blue-700 font-black uppercase">Bank</p>
+                        <p className="text-sm font-bold text-slate-800">₹{financialBalances.bank.toLocaleString()}</p>
                     </div>
                 </div>
             </div>
 
             <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
 
-            {/* Live Time & Date */}
             <div className="flex items-center gap-3 text-right bg-slate-50 px-4 py-2 rounded-lg border border-slate-100 w-full md:w-auto justify-center md:justify-end">
                 <Clock className="text-indigo-600" size={24} />
                 <div>
-                  <p className="text-xl font-bold text-slate-700 leading-none">
-                    {currentTime.toLocaleTimeString([], { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  <p className="text-xl font-black text-slate-700 leading-none">
+                    {currentTime.toLocaleTimeString([], { hour12: true, hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mt-1">
-                    {currentTime.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1">
+                    {currentTime.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}
                   </p>
                 </div>
             </div>
@@ -396,10 +359,10 @@ const App: React.FC = () => {
 
             <div className="flex items-center gap-3 w-full md:w-auto justify-end">
                 <div className="text-right hidden md:block">
-                <p className="text-sm font-semibold text-slate-800">{activeSociety.name}</p>
-                <p className="text-xs text-slate-500">Reg: {activeSociety.registrationNumber || 'N/A'}</p>
+                <p className="text-sm font-black text-indigo-900">{activeSociety.name}</p>
+                <p className="text-[10px] font-bold text-slate-400">ID: {activeSociety.id}</p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-200 shadow-sm shrink-0">
+                <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-black border-2 border-indigo-200 shadow-md shrink-0">
                 {activeSociety.name.substring(0, 2).toUpperCase()}
                 </div>
             </div>
