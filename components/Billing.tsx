@@ -69,25 +69,32 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
 
-  // Helper to calculate arrears for a resident
-  const getResidentArrears = (residentId: string) => {
+  // Helper to calculate strictly PRINCIPAL arrears (Simple Interest requires non-compounding base)
+  const getResidentPrincipalArrears = (residentId: string) => {
     const resident = residents.find(r => r.id === residentId);
     if (!resident) return 0;
-    const unpaidBillsAmount = bills
+    
+    // Sum only the principal components (items) of unpaid bills
+    const unpaidPrincipal = bills
       .filter(b => b.residentId === residentId && b.status !== PaymentStatus.PAID)
-      .reduce((sum, b) => sum + b.totalAmount, 0);
-    return resident.openingBalance + unpaidBillsAmount;
+      .reduce((sum, b) => {
+          const billPrincipal = b.items.reduce((s, i) => s + i.amount, 0);
+          return sum + billPrincipal;
+      }, 0);
+      
+    return resident.openingBalance + unpaidPrincipal;
   };
 
-  // Dynamic Interest Calculation for Individual Preview
+  // Dynamic SIMPLE Interest Calculation for Individual Preview
   const calculatedInterest = useMemo(() => {
     if (!applyInterest || generationMode !== 'INDIVIDUAL' || !selectedResidentId) return 0;
-    const arrears = getResidentArrears(selectedResidentId);
-    if (arrears <= 0) return 0;
+    const principalArrears = getResidentPrincipalArrears(selectedResidentId);
+    if (principalArrears <= 0) return 0;
     
-    // Formula: (Arrears * Rate / 100) / 12 (Monthly)
+    // Simple Interest Formula: (Principal * Rate * Time)
+    // Here time is the billing cycle period (Monthly/Quarterly)
     const divisor = billingFrequency === 'QUARTERLY' ? 4 : (billingFrequency === 'BI-MONTHLY' ? 6 : 12);
-    return (arrears * interestRate / 100) / divisor;
+    return (principalArrears * interestRate / 100) / divisor;
   }, [applyInterest, generationMode, selectedResidentId, interestRate, billingFrequency]);
 
   const totalPrincipal = items.reduce((sum, item) => sum + item.amount, 0);
@@ -175,10 +182,10 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
           
           let residentInterest = 0;
           if (applyInterest) {
-              const arrears = getResidentArrears(resident.id);
-              if (arrears > 0) {
+              const principalArrears = getResidentPrincipalArrears(resident.id);
+              if (principalArrears > 0) {
                   const divisor = billingFrequency === 'QUARTERLY' ? 4 : (billingFrequency === 'BI-MONTHLY' ? 6 : 12);
-                  residentInterest = (arrears * interestRate / 100) / divisor;
+                  residentInterest = (principalArrears * interestRate / 100) / divisor;
               }
           }
 
@@ -197,7 +204,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             status: PaymentStatus.PENDING,
             generatedDate: billDate,
             billMonth: billingMonth,
-            customNotes: [...customBillNotes, `Frequency: ${billingFrequency}`]
+            customNotes: [...customBillNotes, `Frequency: ${billingFrequency}`, `Interest: ${interestRate}% p.a. (Simple)`]
           };
       });
 
@@ -231,10 +238,20 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                   }).filter(i => i.amount > 0);
 
                   const principal = newItems.reduce((s, i) => s + i.amount, 0);
+                  
+                  // Recalculate simple interest on principal base if interest was already applied
+                  let newInterest = bill.interest;
+                  if (applyInterest) {
+                      const principalArrears = getResidentPrincipalArrears(bill.residentId);
+                      const divisor = billingFrequency === 'QUARTERLY' ? 4 : (billingFrequency === 'BI-MONTHLY' ? 6 : 12);
+                      newInterest = (principalArrears * interestRate / 100) / divisor;
+                  }
+
                   return {
                       ...bill,
                       items: newItems,
-                      totalAmount: principal + bill.interest
+                      interest: newInterest,
+                      totalAmount: principal + newInterest
                   };
               }
           }
@@ -243,7 +260,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
       onBulkUpdateBills(updatedBills);
       setIsUpdateModalOpen(false);
-      alert("Billing figures updated successfully based on current society settings.");
+      alert("Billing figures updated successfully with Strict Simple Interest applied.");
   };
 
   const handlePaymentClick = (bill: Bill) => {
@@ -435,7 +452,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 
                 {bill.interest > 0 && (
                     <div className="flex justify-between text-red-600 font-bold">
-                        <span>Interest on Arrears</span>
+                        <span>Simple Interest on Arrears</span>
                         <span>Rs. {bill.interest.toLocaleString()}</span>
                     </div>
                 )}
@@ -496,7 +513,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                      Update Pending Bills
                  </h2>
                  <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-                     Re-calculate existing <span className="font-bold text-slate-800">Pending</span> bills using current society rates. Use this if you modified Global Settings after generating bills.
+                     Re-calculate existing <span className="font-bold text-slate-800">Pending</span> bills using current society rates and <span className="font-bold text-indigo-600 uppercase">Strict Simple Interest</span>.
                  </p>
                  
                  <form onSubmit={handleUpdateBillsProcess} className="space-y-6">
@@ -537,7 +554,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                      <div className="bg-indigo-50 p-4 rounded-2xl border border-indigo-100 flex gap-3">
                          <Info className="text-indigo-600 shrink-0" size={20} />
                          <p className="text-[11px] text-indigo-800 leading-relaxed font-medium">
-                             This process will <span className="font-bold">overwrite</span> the line items of selected pending bills but will <span className="font-bold">preserve</span> existing Interest and Arrears figures.
+                             This process will recalculate interest only on <span className="font-bold">Principal Arrears</span>. It will not charge interest on interest.
                          </p>
                      </div>
 
@@ -879,7 +896,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </tr>
                             {previewBill.interest > 0 && (
                                 <tr className="hover:bg-red-50 border-t-2 border-red-100">
-                                    <td className="p-4 text-red-700 font-bold italic">Add: Interest on Arrears (Default Charges)</td>
+                                    <td className="p-4 text-red-700 font-bold italic">Add: Simple Interest on Arrears (Non-Compounding)</td>
                                     <td className="p-4 text-right font-black text-red-700 border-l border-slate-200">Rs. {previewBill.interest.toLocaleString()}</td>
                                 </tr>
                             )}
@@ -1033,10 +1050,10 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     <div className="flex justify-between items-center mb-4">
                         <div className="flex items-center gap-2">
                            <Percent size={20} className="text-red-600" />
-                           <h3 className="font-bold text-red-900">Interest Calculation on Arrears</h3>
+                           <h3 className="font-bold text-red-900">Interest Calculation on Principal Arrears</h3>
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-xs font-bold text-red-700 uppercase">Apply to this batch?</span>
+                            <span className="text-xs font-bold text-red-700 uppercase">Apply strictly SIMPLE interest?</span>
                             <button 
                                 type="button"
                                 onClick={() => setApplyInterest(!applyInterest)}
@@ -1060,7 +1077,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </div>
                             <div className="flex flex-col justify-center">
                                 <p className="text-[10px] text-red-500 leading-tight">
-                                    Interest will be calculated on the member's total outstanding balance (Opening Bal + Unpaid Bills) up to the current date.
+                                    Interest is calculated <span className="font-black">ONLY</span> on unpaid maintenance principal. No interest is charged on previous interest components (Non-Compounding).
                                 </p>
                             </div>
                         </div>
@@ -1103,7 +1120,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                                     : `Bulk Generation Batch`}
                             </span>
                             {applyInterest && calculatedInterest > 0 && (
-                                <span className="text-xs text-red-600 font-bold">+ Rs. {calculatedInterest.toLocaleString()} Interest Included</span>
+                                <span className="text-xs text-red-600 font-bold">+ Rs. {calculatedInterest.toLocaleString()} Simple Interest (Principal Only)</span>
                             )}
                         </div>
                     </div>
