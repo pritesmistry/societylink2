@@ -40,6 +40,7 @@ export interface Society {
   contactEmail: string;
   contactPhone: string;
   bankDetails: string;
+  upiId?: string; // Added for QR Code generation
   processedBy: string;
   footerNote: string;
   totalUnits?: number;

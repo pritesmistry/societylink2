@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-// Add Info to the lucide-react imports to resolve the "Cannot find name 'Info'" error
 import { FileText, Plus, Trash2, Calculator, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
@@ -61,6 +60,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   // Settings State
   const [tempFooterNote, setTempFooterNote] = useState(activeSociety.footerNote || '');
   const [tempBillingHeads, setTempBillingHeads] = useState<BillItem[]>(activeSociety.billingHeads || []);
+  const [tempUpiId, setTempUpiId] = useState(activeSociety.upiId || '');
 
   // Online Payment Flow States
   const [selectedBillForPay, setSelectedBillForPay] = useState<Bill | null>(null);
@@ -295,7 +295,8 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       onUpdateSociety({ 
           ...activeSociety, 
           footerNote: tempFooterNote,
-          billingHeads: tempBillingHeads
+          billingHeads: tempBillingHeads,
+          upiId: tempUpiId
       });
       setIsSettingsOpen(false);
   };
@@ -344,6 +345,13 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     }
   };
 
+  // Helper for dynamic UPI QR Code Generation
+  const getUpiQrUrl = (amount: number, billId: string) => {
+    if (!activeSociety.upiId) return null;
+    const upiLink = `upi://pay?pa=${activeSociety.upiId}&pn=${encodeURIComponent(activeSociety.name)}&am=${amount}&cu=INR&tn=${encodeURIComponent('Bill '+billId)}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiLink)}`;
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
@@ -351,6 +359,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         onModify={() => { 
             setTempFooterNote(activeSociety.footerNote || ''); 
             setTempBillingHeads(activeSociety.billingHeads || []);
+            setTempUpiId(activeSociety.upiId || '');
             setIsSettingsOpen(true); 
         }}
         balances={balances} 
@@ -381,6 +390,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 onClick={() => { 
                     setTempFooterNote(activeSociety.footerNote || ''); 
                     setTempBillingHeads(activeSociety.billingHeads || []);
+                    setTempUpiId(activeSociety.upiId || '');
                     setIsSettingsOpen(true); 
                 }}
                 className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-100 transition-colors shadow-sm"
@@ -759,15 +769,28 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         </div>
                     </div>
 
-                    <div className="border-t pt-6">
-                        <label className="block text-sm font-black text-indigo-700 uppercase tracking-wider mb-2">Static Footer Note</label>
-                        <textarea 
-                            rows={3}
-                            className="w-full p-4 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm leading-relaxed font-medium"
-                            placeholder="Bank details, office hours, etc."
-                            value={tempFooterNote}
-                            onChange={(e) => setTempFooterNote(e.target.value)}
-                        />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-6">
+                        <div>
+                            <label className="block text-sm font-black text-indigo-700 uppercase tracking-wider mb-2">Society UPI ID (for QR Code)</label>
+                            <input 
+                                type="text"
+                                className="w-full p-4 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm font-bold"
+                                placeholder="society@bank"
+                                value={tempUpiId}
+                                onChange={(e) => setTempUpiId(e.target.value)}
+                            />
+                            <p className="text-[10px] text-slate-400 mt-1 italic">Enables dynamic payment QR codes on bills.</p>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-black text-indigo-700 uppercase tracking-wider mb-2">Static Footer Note</label>
+                            <textarea 
+                                rows={3}
+                                className="w-full p-4 border border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-100 outline-none transition-all text-sm leading-relaxed font-medium"
+                                placeholder="Bank details, office hours, etc."
+                                value={tempFooterNote}
+                                onChange={(e) => setTempFooterNote(e.target.value)}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -871,8 +894,26 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
                     <div className="grid grid-cols-2 gap-10 mt-12">
                         <div className="text-sm">
-                            <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Bank Details for Payment</h4>
-                            <p className="text-slate-600 whitespace-pre-line leading-relaxed">{activeSociety.bankDetails}</p>
+                            <h4 className="font-bold text-slate-900 border-b border-slate-200 pb-1 mb-2">Payment Details</h4>
+                            <p className="text-slate-600 whitespace-pre-line leading-relaxed mb-4">{activeSociety.bankDetails}</p>
+                            
+                            {/* Dynamic UPI QR Code Section */}
+                            {activeSociety.upiId && previewBill.status !== PaymentStatus.PAID ? (
+                                <div className="mt-4 p-4 border-2 border-indigo-100 rounded-2xl bg-indigo-50/30 inline-flex flex-col items-center">
+                                    <p className="text-[10px] font-black text-indigo-600 uppercase mb-2 tracking-widest">Scan & Pay via UPI</p>
+                                    <img 
+                                        src={getUpiQrUrl(previewBill.totalAmount, previewBill.id)!} 
+                                        alt="UPI QR Code" 
+                                        className="w-32 h-32 bg-white p-2 rounded-lg border border-indigo-100 shadow-sm"
+                                    />
+                                    <p className="text-[9px] font-bold text-slate-400 mt-2">{activeSociety.upiId}</p>
+                                </div>
+                            ) : activeSociety.upiId && (
+                                <div className="mt-4 p-4 border border-dashed border-green-200 rounded-2xl bg-green-50/30 text-center">
+                                    <Check className="mx-auto text-green-600 mb-1" size={20} />
+                                    <p className="text-[10px] font-black text-green-700 uppercase tracking-widest">Payment Successfully Settled</p>
+                                </div>
+                            )}
                         </div>
                         <div className="text-center flex flex-col justify-end">
                             <div className="h-16 w-40 border-b border-slate-300 mx-auto"></div>
