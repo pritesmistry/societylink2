@@ -1,5 +1,5 @@
 
-import { Bill, Expense, Notice, PaymentStatus, Resident, Society, MeetingMinutes, Income } from './types';
+import { Bill, Expense, Notice, PaymentStatus, Resident, Society, MeetingMinutes, Income, AccountHead } from './types';
 
 const DEFAULT_BILL_LAYOUT = {
   title: 'MAINTENANCE BILL',
@@ -17,6 +17,28 @@ const DEFAULT_BILL_LAYOUT = {
     amount: true
   }
 };
+
+export const INITIAL_ACCOUNT_HEADS: AccountHead[] = [
+  // Expenses
+  { id: 'h1', name: 'Water Charges', mainGroup: 'Expenses', subGroup: 'Utilities', societyId: '1' },
+  { id: 'h2', name: 'Electricity Charges', mainGroup: 'Expenses', subGroup: 'Utilities', societyId: '1' },
+  { id: 'h3', name: 'Security Charges', mainGroup: 'Expenses', subGroup: 'Services', societyId: '1' },
+  { id: 'h4', name: 'Housekeeping Services', mainGroup: 'Expenses', subGroup: 'Services', societyId: '1' },
+  { id: 'h5', name: 'Repair & Maintenance', mainGroup: 'Expenses', subGroup: 'Repairs', societyId: '1' },
+  { id: 'h6', name: 'Audit Fees', mainGroup: 'Expenses', subGroup: 'Administrative', societyId: '1' },
+  // Liabilities
+  { id: 'h7', name: 'Sinking Fund', mainGroup: 'Liabilities', subGroup: 'Statutory Funds', societyId: '1' },
+  { id: 'h8', name: 'Repair Fund', mainGroup: 'Liabilities', subGroup: 'Statutory Funds', societyId: '1' },
+  { id: 'h9', name: 'Security Deposit (Tenants)', mainGroup: 'Liabilities', subGroup: 'Current Liabilities', societyId: '1' },
+  // Assets
+  { id: 'h10', name: 'Fixed Deposit - Bank', mainGroup: 'Assets', subGroup: 'Investments', societyId: '1' },
+  { id: 'h11', name: 'Cash in Hand', mainGroup: 'Assets', subGroup: 'Current Assets', societyId: '1' },
+  { id: 'h12', name: 'TDS Receivable', mainGroup: 'Assets', subGroup: 'Current Assets', societyId: '1' },
+  // Income
+  { id: 'h13', name: 'Non-Occupancy Charges', mainGroup: 'Income', subGroup: 'Maintenance Income', societyId: '1' },
+  { id: 'h14', name: 'Interest on Bank Balance', mainGroup: 'Income', subGroup: 'Other Income', societyId: '1' },
+  { id: 'h15', name: 'Hall Booking Charges', mainGroup: 'Income', subGroup: 'Amenities Income', societyId: '1' },
+];
 
 export const MOCK_SOCIETIES: Society[] = [
   {

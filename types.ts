@@ -5,6 +5,16 @@ export enum PaymentStatus {
   OVERDUE = 'Overdue'
 }
 
+export type MainAccountGroup = 'Assets' | 'Liabilities' | 'Income' | 'Expenses';
+
+export interface AccountHead {
+  id: string;
+  name: string;
+  mainGroup: MainAccountGroup;
+  subGroup: string;
+  societyId: string;
+}
+
 export interface BillLayout {
   title: string;
   showSocietyAddress: boolean;
@@ -101,7 +111,7 @@ export interface Bill {
 export interface Expense {
   id: string;
   societyId: string;
-  category: string;
+  category: string; // This will map to Sub Group
   amount: number;
   date: string;
   description: string;
@@ -110,6 +120,10 @@ export interface Expense {
   paymentMode?: 'Cash' | 'Cheque' | 'Online' | 'Journal' | 'Debit Note' | 'Credit Note';
   referenceNo?: string; // Cheque No or Txn ID
   bankName?: string;
+  // New Accounting Fields
+  mainGroup?: MainAccountGroup;
+  accountHeadId?: string;
+  accountHeadName?: string;
 }
 
 export interface Income {

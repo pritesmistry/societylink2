@@ -17,8 +17,8 @@ import BankReconciliation from './components/BankReconciliation';
 import StatutoryRegisters from './components/StatutoryRegisters';
 import PaymentVouchers from './components/PaymentVouchers';
 import Templates from './components/Templates';
-import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income, PaymentStatus } from './types';
-import { MOCK_BILLS, MOCK_EXPENSES, MOCK_NOTICES, MOCK_RESIDENTS, MOCK_SOCIETIES, MOCK_MINUTES, MOCK_INCOME } from './constants';
+import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income, PaymentStatus, AccountHead } from './types';
+import { MOCK_BILLS, MOCK_EXPENSES, MOCK_NOTICES, MOCK_RESIDENTS, MOCK_SOCIETIES, MOCK_MINUTES, MOCK_INCOME, INITIAL_ACCOUNT_HEADS } from './constants';
 import { Clock, Wallet, Landmark } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [incomes, setIncomes] = useState<Income[]>(MOCK_INCOME);
   const [notices, setNotices] = useState<Notice[]>(MOCK_NOTICES);
   const [minutes, setMinutes] = useState<MeetingMinutes[]>(MOCK_MINUTES);
+  const [accountHeads, setAccountHeads] = useState<AccountHead[]>(INITIAL_ACCOUNT_HEADS);
 
   // Derived State for Active Society
   const activeSociety = useMemo(() => 
@@ -52,6 +53,7 @@ const App: React.FC = () => {
   const activeIncomes = useMemo(() => incomes.filter(i => i.societyId === activeSocietyId), [incomes, activeSocietyId]);
   const activeNotices = useMemo(() => notices.filter(n => n.societyId === activeSocietyId), [notices, activeSocietyId]);
   const activeMinutes = useMemo(() => minutes.filter(m => m.societyId === activeSocietyId), [minutes, activeSocietyId]);
+  const activeAccountHeads = useMemo(() => accountHeads.filter(h => h.societyId === activeSocietyId), [accountHeads, activeSocietyId]);
 
   // --- BALANCE CALCULATION LOGIC ---
   const financialBalances = useMemo(() => {
@@ -175,6 +177,10 @@ const App: React.FC = () => {
       }
   };
 
+  const handleAddAccountHead = (head: AccountHead) => {
+    setAccountHeads(prev => [...prev, head]);
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'DASHBOARD':
@@ -214,6 +220,7 @@ const App: React.FC = () => {
                 onBulkAddBills={handleBulkAddBills}
                 onUpdateSociety={handleUpdateSociety}
                 onUpdateBill={handleUpdateBill}
+                onBulkUpdateBills={handleBulkUpdateBills}
                 balances={financialBalances}
             />
         );
@@ -254,6 +261,8 @@ const App: React.FC = () => {
                 activeSociety={activeSociety} 
                 onAddExpense={handleAddExpense} 
                 balances={financialBalances}
+                accountHeads={activeAccountHeads}
+                onAddAccountHead={handleAddAccountHead}
             />
         );
       case 'STATEMENTS':
@@ -261,7 +270,7 @@ const App: React.FC = () => {
             <Statements 
                 bills={activeBills} 
                 expenses={activeExpenses} 
-                residents={activeResidents}
+                residents={activeResidents} 
                 activeSociety={activeSociety}
                 balances={financialBalances}
             />

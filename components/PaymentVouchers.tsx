@@ -1,8 +1,7 @@
 
-import React, { useState, useRef } from 'react';
-import { Expense, Society } from '../types';
-import { EXPENSE_CATEGORIES } from '../constants';
-import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen, ArrowUpRight, ArrowDownLeft, Upload } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { Expense, Society, AccountHead, MainAccountGroup } from '../types';
+import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen, ArrowUpRight, ArrowDownLeft, Upload, Tags, Layers, FolderPlus, X, Check, Search } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface PaymentVouchersProps {
@@ -10,7 +9,11 @@ interface PaymentVouchersProps {
   activeSociety: Society;
   onAddExpense: (expense: Expense) => void;
   balances?: { cash: number; bank: number };
+  accountHeads: AccountHead[];
+  onAddAccountHead: (head: AccountHead) => void;
 }
+
+const MAIN_GROUPS: MainAccountGroup[] = ['Assets', 'Liabilities', 'Expenses', 'Income'];
 
 declare global {
   interface Window {
@@ -18,18 +21,28 @@ declare global {
   }
 }
 
-const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSociety, onAddExpense, balances }) => {
+const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSociety, onAddExpense, balances, accountHeads, onAddAccountHead }) => {
   const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'JOURNAL' | 'DEBIT_NOTE' | 'CREDIT_NOTE'>('CASH');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isAddHeadOpen, setIsAddHeadOpen] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Expense | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Voucher Form State
   const [formData, setFormData] = useState<Partial<Expense>>({
     paymentMode: 'Cash',
     amount: 0,
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    mainGroup: 'Expenses',
+    accountHeadId: ''
+  });
+
+  // New Account Head Form State
+  const [newHead, setNewHead] = useState<Partial<AccountHead>>({
+      mainGroup: 'Expenses',
+      subGroup: ''
   });
 
   const filteredExpenses = expenses.filter(e => {
@@ -39,6 +52,11 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
       if (activeTab === 'CREDIT_NOTE') return e.paymentMode === 'Credit Note';
       return e.paymentMode === 'Cheque' || e.paymentMode === 'Online';
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Filter heads based on selected Main Group in Voucher Form
+  const filteredHeads = useMemo(() => {
+    return accountHeads.filter(h => h.mainGroup === formData.mainGroup);
+  }, [accountHeads, formData.mainGroup]);
 
   const handleOpenModal = () => {
       let defaultMode = 'Cash';
@@ -50,33 +68,52 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
       setFormData({
         paymentMode: defaultMode as any,
         amount: 0,
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        mainGroup: 'Expenses',
+        accountHeadId: ''
       });
       setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSaveVoucher = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.vendor && formData.amount && formData.category) {
+    if (formData.vendor && formData.amount && formData.accountHeadId) {
+        const head = accountHeads.find(h => h.id === formData.accountHeadId);
         onAddExpense({
             id: `VCH-${Date.now()}`,
             societyId: activeSociety.id,
-            category: formData.category,
+            category: head?.subGroup || 'General',
             amount: Number(formData.amount),
             date: formData.date || new Date().toISOString().split('T')[0],
             description: formData.description || '',
             vendor: formData.vendor,
             paymentMode: formData.paymentMode as any,
             referenceNo: formData.referenceNo,
-            bankName: formData.bankName
+            bankName: formData.bankName,
+            mainGroup: formData.mainGroup as MainAccountGroup,
+            accountHeadId: formData.accountHeadId,
+            accountHeadName: head?.name
         });
         setIsModalOpen(false);
     }
   };
 
-  const handlePreview = (voucher: Expense) => {
-      setSelectedVoucher(voucher);
-      setIsPreviewOpen(true);
+  const handleSaveNewHead = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (newHead.name && newHead.mainGroup && newHead.subGroup) {
+          const head: AccountHead = {
+              id: `H${Date.now()}`,
+              name: newHead.name,
+              mainGroup: newHead.mainGroup as MainAccountGroup,
+              subGroup: newHead.subGroup,
+              societyId: activeSociety.id
+          };
+          onAddAccountHead(head);
+          // Auto select the new head in the voucher form
+          setFormData(prev => ({ ...prev, mainGroup: head.mainGroup, accountHeadId: head.id }));
+          setIsAddHeadOpen(false);
+          setNewHead({ mainGroup: 'Expenses', subGroup: '' });
+      }
   };
 
   const downloadPDF = (elementId: string, filename: string) => {
@@ -97,384 +134,247 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
     });
   };
 
-  const downloadTemplate = () => {
-    const headers = "Date (YYYY-MM-DD),Payee Name,Category,Amount,Description,Payment Mode,Reference No,Bank Name\n";
-    const example = "2023-10-01,Clean Squad Services,Cleaning,5000,Monthly Cleaning Charges,Cheque,123456,SBI\n2023-10-05,City Power,Utilities,1200,Electricity Bill,Online,TXN998877,";
-    const blob = new Blob([headers + example], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'voucher_bulk_template.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const content = e.target?.result as string;
-        if (!content) return;
-
-        const lines = content.split(/\r\n|\n/);
-        let successCount = 0;
-
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            const parts = line.split(',').map(p => p.trim());
-            if (parts.length < 4) continue;
-
-            const [date, vendor, category, amountStr, description, mode, ref, bank] = parts;
-
-            if (vendor && amountStr) {
-                onAddExpense({
-                    id: `VCH-BLK-${Date.now()}-${i}`,
-                    societyId: activeSociety.id,
-                    category: category || 'Administrative',
-                    amount: parseFloat(amountStr) || 0,
-                    date: date || new Date().toISOString().split('T')[0],
-                    description: description || 'Bulk Entry',
-                    vendor: vendor,
-                    paymentMode: (mode as any) || 'Cash',
-                    referenceNo: ref || '',
-                    bankName: bank || ''
-                });
-                successCount++;
-            }
-        }
-        alert(`Successfully imported ${successCount} vouchers.`);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-    reader.readAsText(file);
-  };
-
   return (
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
         onNew={handleOpenModal}
         onSave={handleOpenModal} 
-        onPrint={() => alert("Select a voucher to print")}
-        onSearch={() => {}}
         balances={balances}
       />
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-           <h2 className="text-xl font-semibold text-slate-800">Voucher Management</h2>
-           <p className="text-sm text-slate-500 mt-1">Cash, Bank, Journal, Debit & Credit Notes.</p>
-        </div>
-        <div className="flex gap-2">
-             <input 
-                type="file" 
-                accept=".csv" 
-                ref={fileInputRef} 
-                className="hidden" 
-                onChange={handleBulkUpload} 
-            />
-            <button 
-                onClick={downloadTemplate} 
-                className="bg-white text-slate-600 border border-slate-200 px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-50 transition-colors text-sm shadow-sm"
-                title="Download CSV Template"
-            >
-                <FileText size={16} /> Template
-            </button>
-            <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="bg-slate-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-900 transition-colors shadow-sm text-sm"
-                title="Upload CSV"
-            >
-                <Upload size={16} /> Bulk Upload
-            </button>
+           <h2 className="text-xl font-semibold text-slate-800">Accounting Vouchers</h2>
+           <p className="text-sm text-slate-500 mt-1">Multi-group structured entry for professional auditing.</p>
         </div>
       </div>
       
       <div className="flex gap-2 border-b border-slate-200 pb-1 flex-wrap">
-          <button 
-            onClick={() => setActiveTab('CASH')}
-            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CASH' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-          >
-              <Banknote size={16} /> Cash
-          </button>
-          <button 
-            onClick={() => setActiveTab('BANK')}
-            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'BANK' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-          >
-              <Building size={16} /> Bank
-          </button>
-          <button 
-            onClick={() => setActiveTab('JOURNAL')}
-            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'JOURNAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-          >
-              <BookOpen size={16} /> Journal
-          </button>
-          <button 
-            onClick={() => setActiveTab('DEBIT_NOTE')}
-            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'DEBIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-          >
-              <ArrowUpRight size={16} /> Debit Note
-          </button>
-          <button 
-            onClick={() => setActiveTab('CREDIT_NOTE')}
-            className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CREDIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
-          >
-              <ArrowDownLeft size={16} /> Credit Note
-          </button>
+          <button onClick={() => setActiveTab('CASH')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CASH' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><Banknote size={16} /> Cash</button>
+          <button onClick={() => setActiveTab('BANK')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'BANK' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><Building size={16} /> Bank</button>
+          <button onClick={() => setActiveTab('JOURNAL')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'JOURNAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><BookOpen size={16} /> Journal</button>
+          <button onClick={() => setActiveTab('DEBIT_NOTE')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'DEBIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><ArrowUpRight size={16} /> Debit Note</button>
+          <button onClick={() => setActiveTab('CREDIT_NOTE')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CREDIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><ArrowDownLeft size={16} /> Credit Note</button>
       </div>
 
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-           <div className="text-sm text-slate-500">
-               Showing {filteredExpenses.length} records
-           </div>
-           <button 
-            onClick={handleOpenModal}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-md"
-           >
-            <Plus size={18} />
-            Create {activeTab.replace('_', ' ')}
-           </button>
+           <div className="text-sm text-slate-500">Showing {filteredExpenses.length} records in {activeTab} register</div>
+           <button onClick={handleOpenModal} className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"><Plus size={18} /> New Voucher Entry</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredExpenses.map(voucher => (
               <div key={voucher.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all group">
                   <div className="flex justify-between items-start mb-2">
-                      <div className="bg-slate-100 px-2 py-1 rounded text-xs font-mono font-bold text-slate-600">
-                          {voucher.id}
-                      </div>
-                      <span className="font-bold text-lg text-slate-800">₹{voucher.amount.toFixed(2)}</span>
+                      <div className="bg-slate-100 px-2 py-1 rounded text-[10px] font-mono font-black text-slate-600 uppercase tracking-tighter">{voucher.id}</div>
+                      <span className="font-black text-lg text-slate-800">₹{voucher.amount.toLocaleString()}</span>
                   </div>
-                  <h3 className="font-semibold text-slate-800 mb-1">{voucher.vendor}</h3>
-                  <div className="flex gap-2 mb-2">
-                      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{voucher.category}</span>
-                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold">{voucher.paymentMode}</span>
+                  <h3 className="font-black text-slate-800 mb-1 truncate">{voucher.vendor}</h3>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                      <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-black uppercase">{voucher.mainGroup}</span>
+                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold uppercase">{voucher.accountHeadName}</span>
+                      <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-bold uppercase">{voucher.paymentMode}</span>
                   </div>
-                  <p className="text-sm text-slate-500 mb-4 line-clamp-2">{voucher.description}</p>
+                  <p className="text-xs text-slate-500 mb-4 line-clamp-2 italic">"{voucher.description}"</p>
                   
                   <div className="flex justify-between items-center text-xs text-slate-500 border-t border-slate-100 pt-3">
-                      <span>{voucher.date}</span>
-                      <button 
-                        onClick={() => handlePreview(voucher)}
-                        className="text-indigo-600 font-bold hover:underline flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                          <Printer size={14} /> Print
+                      <span className="font-bold">{voucher.date}</span>
+                      <button onClick={() => { setSelectedVoucher(voucher); setIsPreviewOpen(true); }} className="text-indigo-600 font-black flex items-center gap-1 hover:underline">
+                          <Printer size={14} /> PRINT VOUCHER
                       </button>
                   </div>
               </div>
           ))}
           {filteredExpenses.length === 0 && (
-               <div className="col-span-full py-12 text-center text-slate-400 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                   No vouchers found. Create one to get started.
+               <div className="col-span-full py-20 text-center text-slate-400 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                   <FileText size={48} className="mx-auto mb-4 opacity-10" />
+                   <p className="font-bold">No vouchers in this register.</p>
                </div>
           )}
       </div>
 
-      {/* CREATE MODAL */}
+      {/* VOUCHER CREATION MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h2 className="text-xl font-bold mb-4 capitalize">Create {activeTab.toLowerCase().replace('_', ' ')}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {(activeTab === 'JOURNAL' || activeTab === 'DEBIT_NOTE' || activeTab === 'CREDIT_NOTE') ? 'Party / Ledger Name' : 'Payee Name (Vendor)'}
-                </label>
-                <input 
-                  type="text" 
-                  required
-                  className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={formData.vendor}
-                  onChange={e => setFormData({...formData, vendor: e.target.value})}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[100] backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl my-auto animate-in zoom-in duration-200">
+            <div className="flex justify-between items-center mb-8">
                 <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Amount (₹)</label>
-                    <input 
-                    type="number" 
-                    required
-                    min="0"
-                    className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={formData.amount}
-                    onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})}
-                    />
+                    <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3"><Plus className="text-indigo-600" /> New Voucher Entry</h2>
+                    <p className="text-sm text-slate-500 mt-1 uppercase font-bold tracking-widest">{activeTab.replace('_', ' ')} Register</p>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
-                    <input 
-                    type="date" 
-                    required
-                    className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                    value={formData.date}
-                    onChange={e => setFormData({...formData, date: e.target.value})}
-                    />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {(activeTab === 'JOURNAL' || activeTab === 'DEBIT_NOTE' || activeTab === 'CREDIT_NOTE') ? 'Contra / Category' : 'Category'}
-                </label>
-                <select 
-                  className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                  required
-                  value={formData.category}
-                  onChange={e => setFormData({...formData, category: e.target.value})}
-                >
-                  <option value="">Select Category</option>
-                  {EXPENSE_CATEGORIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {(activeTab === 'JOURNAL' || activeTab === 'DEBIT_NOTE') ? 'Narration' : 'Description / Towards'}
-                </label>
-                <textarea 
-                  rows={2}
-                  className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                  value={formData.description}
-                  onChange={e => setFormData({...formData, description: e.target.value})}
-                />
-              </div>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X /></button>
+            </div>
+            
+            <form onSubmit={handleSaveVoucher} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2">
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payee Name / Vendor *</label>
+                        <input type="text" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-slate-800" value={formData.vendor} onChange={e => setFormData({...formData, vendor: e.target.value})} placeholder="e.g. Clean Squad Pvt Ltd." />
+                    </div>
 
-              {activeTab === 'BANK' && (
-                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg">
+                    <div className="bg-indigo-50 p-4 rounded-3xl md:col-span-2 border border-indigo-100">
+                        <div className="flex justify-between items-center mb-4 px-1">
+                             <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><Layers size={14} /> Accounting Grouping</h4>
+                             <button type="button" onClick={() => setIsAddHeadOpen(true)} className="text-[10px] font-black bg-white text-indigo-600 px-3 py-1.5 rounded-full border border-indigo-200 hover:bg-indigo-600 hover:text-white transition-all shadow-sm">+ Add New Account Head</button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-tighter mb-1 ml-1">Main Group</label>
+                                <select className="w-full p-3 bg-white border border-indigo-100 rounded-xl font-bold text-indigo-900 outline-none" value={formData.mainGroup} onChange={e => setFormData({...formData, mainGroup: e.target.value as any, accountHeadId: ''})}>
+                                    {MAIN_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-tighter mb-1 ml-1">Head of Account *</label>
+                                <select required className="w-full p-3 bg-white border border-indigo-100 rounded-xl font-bold text-indigo-900 outline-none" value={formData.accountHeadId} onChange={e => setFormData({...formData, accountHeadId: e.target.value})}>
+                                    <option value="">-- Select Head --</option>
+                                    {filteredHeads.map(h => <option key={h.id} value={h.id}>{h.name} ({h.subGroup})</option>)}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Voucher Amount (₹) *</label>
+                            <input type="number" required min="0" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 outline-none font-black text-xl text-slate-800" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Voucher Date *</label>
+                            <input type="date" required className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none font-bold" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Narration / Description</label>
+                    <textarea rows={2} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 outline-none text-sm font-medium" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} placeholder="Being amount paid towards..." />
+                </div>
+
+                {activeTab === 'BANK' && (
+                  <div className="grid grid-cols-2 gap-4 bg-slate-100 p-6 rounded-3xl">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Cheque No / Ref</label>
-                        <input 
-                            type="text" 
-                            className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="Chq No."
-                            value={formData.referenceNo || ''}
-                            onChange={e => setFormData({...formData, referenceNo: e.target.value})}
-                        />
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Cheque No / Ref</label>
+                        <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold" placeholder="Chq No." value={formData.referenceNo || ''} onChange={e => setFormData({...formData, referenceNo: e.target.value})} />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Bank Name</label>
-                        <input 
-                            type="text" 
-                            className="w-full p-2 border border-slate-300 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder="Drawing Bank"
-                            value={formData.bankName || ''}
-                            onChange={e => setFormData({...formData, bankName: e.target.value})}
-                        />
+                        <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Bank Name</label>
+                        <input type="text" className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold" placeholder="Drawing Bank" value={formData.bankName || ''} onChange={e => setFormData({...formData, bankName: e.target.value})} />
                       </div>
                   </div>
-              )}
+                )}
               
-              <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                >
-                  Save Voucher
-                </button>
-              </div>
+                <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-8 py-3 text-slate-500 font-bold hover:bg-slate-50 rounded-2xl transition-all">Cancel</button>
+                    <button type="submit" className="px-12 py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-2 active:scale-95">
+                        <Check size={20} /> Save Official Voucher
+                    </button>
+                </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* PREVIEW MODAL */}
+      {/* ACCOUNT HEAD CREATION MODAL (POPUP WITHIN MODAL) */}
+      {isAddHeadOpen && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><FolderPlus className="text-indigo-600" /> New Account Head</h3>
+                      <button onClick={() => setIsAddHeadOpen(false)} className="p-1 hover:bg-slate-100 rounded-full text-slate-400"><X size={20}/></button>
+                  </div>
+                  <form onSubmit={handleSaveNewHead} className="space-y-5">
+                      <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Main Group</label>
+                          <select required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" value={newHead.mainGroup} onChange={e => setNewHead({...newHead, mainGroup: e.target.value as any})}>
+                              {MAIN_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Sub Group / Category</label>
+                          <input type="text" required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" placeholder="e.g. Current Assets, Utilities" value={newHead.subGroup} onChange={e => setNewHead({...newHead, subGroup: e.target.value})} />
+                      </div>
+                      <div>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Head Name</label>
+                          <input type="text" required className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold outline-none" placeholder="e.g. Lift AMC charges" value={newHead.name} onChange={e => setNewHead({...newHead, name: e.target.value})} />
+                      </div>
+                      <div className="flex gap-2 pt-4">
+                          <button type="button" onClick={() => setIsAddHeadOpen(false)} className="flex-1 py-3 text-slate-500 font-bold hover:bg-slate-100 rounded-xl">Cancel</button>
+                          <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white font-black rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100">Add Account</button>
+                      </div>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* VOUCHER PREVIEW MODAL */}
       {isPreviewOpen && selectedVoucher && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[120] backdrop-blur-sm p-4 overflow-y-auto">
               <div className="relative w-full max-w-2xl flex flex-col items-center">
                   <div className="flex gap-4 mb-4">
-                      <button 
-                        onClick={() => downloadPDF('voucher-preview', `Voucher_${selectedVoucher.id}.pdf`)}
-                        className="bg-white text-indigo-600 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-indigo-50 flex items-center gap-2"
-                      >
-                          <Download size={20} /> Download PDF
-                      </button>
-                      <button 
-                        onClick={() => setIsPreviewOpen(false)}
-                        className="bg-slate-800 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-slate-900"
-                      >
-                          Close
-                      </button>
+                      <button onClick={() => downloadPDF('voucher-preview', `Voucher_${selectedVoucher.id}.pdf`)} className="bg-white text-indigo-600 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-indigo-50 flex items-center gap-2"><Printer size={20} /> Download PDF</button>
+                      <button onClick={() => setIsPreviewOpen(false)} className="bg-slate-800 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-slate-900">Close</button>
                   </div>
 
-                  <div 
-                    id="voucher-preview" 
-                    className="bg-white w-[210mm] h-[148mm] p-[10mm] shadow-xl border border-slate-300 mx-auto text-slate-800"
-                    style={{ fontFamily: 'serif' }}
-                  >
-                      <div className="border-2 border-slate-800 h-full p-6 relative">
-                          {/* Header */}
-                          <div className="text-center border-b-2 border-slate-800 pb-4">
-                              <h1 className="text-2xl font-bold uppercase tracking-widest">{activeSociety.name}</h1>
-                              <p className="text-sm italic">{activeSociety.address}</p>
-                              <div className="mt-4 inline-block bg-slate-800 text-white px-6 py-1 font-bold text-lg uppercase">
+                  <div id="voucher-preview" className="bg-white w-[210mm] h-[148mm] p-[10mm] shadow-2xl border border-slate-200 mx-auto text-slate-800" style={{ fontFamily: 'serif' }}>
+                      <div className="border-4 border-double border-slate-800 h-full p-8 relative flex flex-col">
+                          <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
+                              <h1 className="text-2xl font-bold uppercase tracking-widest mb-1">{activeSociety.name}</h1>
+                              <p className="text-xs italic text-slate-500">{activeSociety.address}</p>
+                              <div className="mt-4 inline-block bg-slate-800 text-white px-8 py-1.5 font-bold text-lg uppercase tracking-widest rounded-lg">
                                   {selectedVoucher.paymentMode} Voucher
                               </div>
                           </div>
 
-                          <div className="flex justify-between items-center mt-6">
-                              <p className="font-bold">No: <span className="font-normal border-b border-dotted border-slate-400 px-2">{selectedVoucher.id}</span></p>
-                              <p className="font-bold">Date: <span className="font-normal border-b border-dotted border-slate-400 px-2">{selectedVoucher.date}</span></p>
+                          <div className="flex justify-between items-center mb-8">
+                              <p className="font-bold text-lg">Vch No: <span className="font-mono text-indigo-700 px-2">{selectedVoucher.id}</span></p>
+                              <p className="font-bold text-lg">Date: <span className="px-2">{selectedVoucher.date}</span></p>
                           </div>
 
-                          {(selectedVoucher.paymentMode === 'Journal' || selectedVoucher.paymentMode === 'Debit Note' || selectedVoucher.paymentMode === 'Credit Note') ? (
-                              <div className="mt-8 space-y-6 text-lg leading-loose">
-                                  <div className="flex justify-between border-b border-dotted border-slate-400 pb-2">
-                                      <span><strong>Amount:</strong> ₹ {selectedVoucher.amount.toLocaleString()}</span>
-                                  </div>
-                                  <div className="pt-4">
-                                      <p><strong>Party Name:</strong> {selectedVoucher.vendor}</p>
-                                      <p className="mt-2"><strong>Category/Account:</strong> {selectedVoucher.category}</p>
-                                      <p className="mt-2"><strong>Narration:</strong> {selectedVoucher.description}</p>
-                                  </div>
-                                   {selectedVoucher.paymentMode === 'Debit Note' && <p className="font-bold mt-4 text-center">WE HAVE DEBITED YOUR ACCOUNT</p>}
-                                   {selectedVoucher.paymentMode === 'Credit Note' && <p className="font-bold mt-4 text-center">WE HAVE CREDITED YOUR ACCOUNT</p>}
+                          <div className="space-y-8 text-lg leading-loose flex-1">
+                              <div className="flex items-end gap-2">
+                                  <span>Paid to Mr./Ms./M/s :</span>
+                                  <span className="font-bold border-b-2 border-dotted border-slate-400 px-4 flex-1 pb-1">{selectedVoucher.vendor}</span>
                               </div>
-                          ) : (
-                              <div className="mt-8 space-y-6 text-lg leading-loose">
-                                  <p>
-                                      Paid to Mr./Ms./M/s 
-                                      <span className="font-bold border-b border-dotted border-slate-400 px-4 ml-2 w-full inline-block">{selectedVoucher.vendor}</span>
-                                  </p>
-                                  <p>
-                                      A sum of Rupees 
-                                      <span className="font-bold border-b border-dotted border-slate-400 px-4 ml-2 inline-block">₹ {selectedVoucher.amount.toLocaleString()} /-</span>
-                                  </p>
-                                  
-                                  {selectedVoucher.paymentMode !== 'Cash' && (
-                                      <p>
-                                          By Cheque No / Ref 
-                                          <span className="font-bold border-b border-dotted border-slate-400 px-4 mx-2">{selectedVoucher.referenceNo || '________'}</span>
-                                          dated 
-                                          <span className="font-bold border-b border-dotted border-slate-400 px-4 mx-2">{selectedVoucher.date}</span>
-                                          Drawn on 
-                                          <span className="font-bold border-b border-dotted border-slate-400 px-4 mx-2">{selectedVoucher.bankName || '________'}</span>
-                                      </p>
-                                  )}
-
-                                  <p>
-                                      Towards 
-                                      <span className="font-bold border-b border-dotted border-slate-400 px-4 ml-2 inline-block w-full">{selectedVoucher.description} ({selectedVoucher.category})</span>
-                                  </p>
+                              <div className="flex items-end gap-2">
+                                  <span>A sum of Rupees :</span>
+                                  <span className="font-black text-xl border-b-2 border-dotted border-slate-400 px-4 flex-1 pb-1">₹ {selectedVoucher.amount.toLocaleString()} /-</span>
                               </div>
-                          )}
+                              
+                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-2 gap-4">
+                                  <div>
+                                      <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Classification</p>
+                                      <p className="text-sm font-bold">{selectedVoucher.mainGroup} / {selectedVoucher.accountHeadName}</p>
+                                  </div>
+                                  <div className="text-right">
+                                      <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Sub-Category</p>
+                                      <p className="text-sm font-bold">{selectedVoucher.category}</p>
+                                  </div>
+                              </div>
 
-                          <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end pt-12">
+                              <div className="flex items-end gap-2">
+                                  <span>Towards :</span>
+                                  <span className="italic border-b-2 border-dotted border-slate-400 px-4 flex-1 pb-1">"{selectedVoucher.description}"</span>
+                              </div>
+
+                              {selectedVoucher.paymentMode !== 'Cash' && selectedVoucher.paymentMode !== 'Journal' && (
+                                  <p className="text-sm font-bold bg-indigo-50 p-3 rounded-lg border border-indigo-100 flex justify-between">
+                                      <span>Mode: {selectedVoucher.paymentMode}</span>
+                                      <span>Ref: {selectedVoucher.referenceNo || 'N/A'}</span>
+                                      <span>Bank: {selectedVoucher.bankName || 'N/A'}</span>
+                                  </p>
+                              )}
+                          </div>
+
+                          <div className="mt-auto grid grid-cols-3 gap-10 pt-12">
                               <div className="text-center">
-                                  <div className="border-t border-slate-400 w-32"></div>
-                                  <p className="text-sm font-bold mt-1">Prepared By</p>
+                                  <div className="border-t border-slate-400 pt-2 font-black text-xs uppercase tracking-widest text-slate-500">Prepared By</div>
                               </div>
                               <div className="text-center">
-                                  <div className="border-t border-slate-400 w-32"></div>
-                                  <p className="text-sm font-bold mt-1">Authorised Signatory</p>
+                                  <div className="border-t border-slate-400 pt-2 font-black text-xs uppercase tracking-widest text-slate-500">Receiver's Sign</div>
+                              </div>
+                              <div className="text-center">
+                                  <div className="border-t border-slate-400 pt-2 font-black text-xs uppercase tracking-widest text-slate-800">Authorised Signatory</div>
                               </div>
                           </div>
                       </div>
