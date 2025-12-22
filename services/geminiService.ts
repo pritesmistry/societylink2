@@ -36,6 +36,36 @@ export const askSocietyExpert = async (question: string): Promise<string> => {
 };
 
 /**
+ * AI-powered arrears recovery strategy and message generator.
+ */
+export const generateArrearsRecoveryStrategy = async (memberData: any, societyName: string): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = `
+      As a Society Manager, analyze the following member arrears and draft a professional recovery strategy.
+      MEMBER: ${memberData.name} (Unit ${memberData.unitNumber})
+      TOTAL ARREARS: ₹${memberData.totalAmount}
+      DUE DATE: ${memberData.dueDate}
+      SOCIETY: ${societyName}
+
+      Provide:
+      1. A brief analysis of the situation (Urgency level).
+      2. A draft "Gentle Reminder" message for WhatsApp/Email.
+      3. A draft "Formal Demand Notice" (Firm tone) citing that simple interest of up to 21% p.a. can be charged as per Model Bye-laws.
+      
+      Return as plain text with clear headings. No markdown backticks.
+    `;
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: prompt,
+    });
+    return response.text || "Analysis unavailable.";
+  } catch (error) {
+    return "Error generating recovery strategy.";
+  }
+};
+
+/**
  * Generates a custom society template based on description.
  */
 export const generateCustomTemplate = async (description: string): Promise<string> => {

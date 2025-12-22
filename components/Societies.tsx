@@ -94,7 +94,7 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
 
       <div className="flex justify-between items-center">
         <div>
-            <h2 className="text-xl font-semibold text-slate-800">Estate & Society Management</h2>
+            <h2 className="text-xl font-semibold text-slate-800">Society Management</h2>
             <p className="text-sm text-slate-500 mt-1">Configure multi-society ledgers and master replication.</p>
         </div>
         <div className="flex gap-3">
@@ -141,7 +141,7 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
                       <h3 className={`font-black text-xl truncate ${isActive ? 'text-indigo-900' : 'text-slate-800'}`}>
                           {society.name}
                       </h3>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">ESTATE ID: {society.id}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">SOCIETY ID: {society.id}</p>
                   </div>
               </div>
               <div className="space-y-3 text-sm text-slate-600">
@@ -166,7 +166,7 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
               </div>
               <div className="mt-8 pt-6 border-t border-slate-100 flex justify-between items-center">
                 <span className={`text-xs font-black uppercase tracking-widest ${isActive ? 'text-indigo-600' : 'text-slate-400'}`}>
-                    {isActive ? 'Current Active Estate' : 'Click to Select'}
+                    {isActive ? 'Current Active Society' : 'Click to Select'}
                 </span>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                      <button onClick={(e) => handleOpenEditModal(e, society)} className="p-2 rounded-xl text-slate-400 hover:bg-indigo-100 hover:text-indigo-600 transition-all"><Edit size={18} /></button>
@@ -179,7 +179,7 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
       </div>
 
       {isCopyModalOpen && (
-          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[110] backdrop-blur-md p-4">
+          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[110] backdrop-blur-sm p-4">
               <div className="bg-white rounded-3xl p-8 w-full max-w-xl shadow-2xl animate-in zoom-in duration-300 relative overflow-hidden">
                   <div className="flex justify-between items-center mb-8 relative z-10">
                       <div>
@@ -189,7 +189,7 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
                           </h2>
                           <p className="text-sm text-slate-500 mt-1">Replicate Accounting Heads and Member Lists.</p>
                       </div>
-                      <button onClick={() => setIsCopyModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X /></button>
+                      <button onClick={() => setIsCopyModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><X size={20}/></button>
                   </div>
                   <form onSubmit={handleProcessCopy} className="space-y-8 relative z-10">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
@@ -233,7 +233,7 @@ const Societies: React.FC<SocietiesProps> = ({ societies, activeSocietyId, onAdd
           <div className="bg-white rounded-3xl p-10 w-full max-w-4xl shadow-2xl animate-in zoom-in duration-200 my-auto relative overflow-hidden">
             <h2 className="text-3xl font-black mb-8 text-slate-800 flex items-center gap-3 border-b border-slate-100 pb-4">
                 <Building2 className="text-indigo-600" size={32} />
-                {editingId ? 'Modify Estate Registry' : 'New Estate Registration'}
+                {editingId ? 'Modify Society Registry' : 'New Society Registration'}
             </h2>
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">

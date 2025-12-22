@@ -311,6 +311,13 @@ const App: React.FC = () => {
     }
   };
 
+  const getHeaderTitle = () => {
+      if (currentView === 'AI_INSIGHTS') return 'AI Financial Analysis';
+      if (currentView === 'SOCIETIES') return 'Society Registry';
+      if (currentView === 'KNOWLEDGE_BASE') return 'Society Knowledge Hub';
+      return currentView.replace('_', ' ');
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       <Sidebar currentView={currentView} onChangeView={setCurrentView} />
@@ -319,10 +326,7 @@ const App: React.FC = () => {
         <header className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-100 transition-all">
           <div className="mb-4 md:mb-0">
             <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tighter">
-              {currentView === 'AI_INSIGHTS' ? 'AI Financial Analysis' : 
-               currentView === 'SOCIETIES' ? 'Estate Registry' :
-               currentView === 'KNOWLEDGE_BASE' ? 'Society Knowledge Folder' :
-               currentView.replace('_', ' ')}
+              {getHeaderTitle()}
             </h2>
             <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Admin Dashboard Control Panel</p>
           </div>

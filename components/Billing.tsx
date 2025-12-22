@@ -1,8 +1,9 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical } from 'lucide-react';
+import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical, Sparkles, Wand2, MessageSquare, Send } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
+import { generateArrearsRecoveryStrategy } from '../services/geminiService';
 
 declare global {
   interface Window {
@@ -30,6 +31,12 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isGatewayOpen, setIsGatewayOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+
+  // AI State
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState<string | null>(null);
+  const [selectedBillForAi, setSelectedBillForAi] = useState<Bill | null>(null);
 
   const [previewBill, setPreviewBill] = useState<Bill | null>(null);
 
@@ -94,6 +101,21 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const handlePreview = (bill: Bill) => {
       setPreviewBill(bill);
       setIsPreviewOpen(true);
+  };
+
+  const handleArrearsAi = async (bill: Bill) => {
+      setSelectedBillForAi(bill);
+      setAiResult(null);
+      setIsAiPanelOpen(true);
+      setAiLoading(true);
+      try {
+          const result = await generateArrearsRecoveryStrategy(bill, activeSociety.name);
+          setAiResult(result);
+      } catch (err) {
+          setAiResult("Failed to generate AI strategy.");
+      } finally {
+          setAiLoading(false);
+      }
   };
 
   const downloadPDF = (elementId: string, filename: string) => {
@@ -199,9 +221,16 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 <h3 className="font-bold text-slate-800">{bill.unitNumber} - {bill.residentName}</h3>
                 <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">{formatBillingMonth(bill.billMonth)}</p>
               </div>
-              <span className={`px-2 py-1 rounded-full text-[10px] font-black border uppercase ${bill.status === PaymentStatus.PAID ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
-                {bill.status}
-              </span>
+              <div className="flex flex-col items-end gap-1">
+                <span className={`px-2 py-1 rounded-full text-[10px] font-black border uppercase ${bill.status === PaymentStatus.PAID ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
+                    {bill.status}
+                </span>
+                {bill.status === PaymentStatus.OVERDUE && (
+                    <button onClick={() => handleArrearsAi(bill)} className="text-[9px] font-black text-indigo-600 flex items-center gap-1 hover:underline">
+                        <Sparkles size={10} /> AI RECOVERY
+                    </button>
+                )}
+              </div>
             </div>
             <div className="mt-4 border-t border-slate-50 pt-4 flex justify-between items-center">
                 <span className="text-xl font-black text-indigo-900">₹{bill.totalAmount.toLocaleString()}</span>
@@ -213,7 +242,76 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         ))}
       </div>
 
-      {/* --- SETTINGS MODAL: Branding, Multiple Notes, Columns, GST --- */}
+      {/* --- AI ARREARS RECOVERY MODAL --- */}
+      {isAiPanelOpen && selectedBillForAi && (
+          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[130] backdrop-blur-md p-4">
+              <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                  <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-8 text-white flex justify-between items-center">
+                      <div className="flex items-center gap-4">
+                          <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md"><Sparkles size={32} /></div>
+                          <div>
+                              <h2 className="text-2xl font-black uppercase tracking-tighter">AI Recovery Assistant</h2>
+                              <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest">Analyzing arrears for {selectedBillForAi.residentName} ({selectedBillForAi.unitNumber})</p>
+                          </div>
+                      </div>
+                      <button onClick={() => setIsAiPanelOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={28}/></button>
+                  </div>
+                  
+                  <div className="p-8 flex flex-col lg:flex-row gap-10">
+                      <div className="flex-1 space-y-6">
+                          <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Arrears Amount</p>
+                                  <p className="text-2xl font-black text-red-600">₹{selectedBillForAi.totalAmount.toLocaleString()}</p>
+                              </div>
+                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Due Date</p>
+                                  <p className="text-2xl font-black text-slate-800">{selectedBillForAi.dueDate}</p>
+                              </div>
+                          </div>
+
+                          <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100">
+                              <h4 className="text-xs font-black text-indigo-700 uppercase tracking-widest mb-4 flex items-center gap-2"><Wand2 size={16}/> AI Recovery Logic</h4>
+                              <p className="text-sm text-indigo-900 leading-relaxed font-medium italic">
+                                  "Our AI suggests a two-pronged approach: A personalized gentle nudge via WhatsApp followed by a formal society notice if payment isn't cleared within 48 hours."
+                              </p>
+                          </div>
+
+                          <div className="flex gap-4">
+                              <button onClick={() => handleArrearsAi(selectedBillForAi)} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl transition-all flex items-center justify-center gap-2">
+                                  <RefreshCcw size={18} /> Regenerate Strategy
+                              </button>
+                          </div>
+                      </div>
+
+                      <div className="w-full lg:w-96 flex flex-col">
+                          <div className="flex-1 bg-slate-900 rounded-[2rem] p-6 text-slate-300 font-mono text-[11px] leading-loose overflow-y-auto max-h-[400px] border border-slate-800 shadow-inner relative custom-scrollbar">
+                              {aiLoading ? (
+                                  <div className="h-full flex flex-col items-center justify-center space-y-4">
+                                      <Loader2 className="animate-spin text-indigo-500" size={40} />
+                                      <p className="text-indigo-400 font-black animate-pulse uppercase text-[10px]">Analyzing Arrears Patterns...</p>
+                                  </div>
+                              ) : (
+                                  <div className="animate-fade-in">
+                                      {aiResult}
+                                  </div>
+                              )}
+                          </div>
+                          <div className="mt-4 flex gap-2">
+                             <button className="flex-1 bg-green-600 text-white py-3 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-green-700">
+                                 <MessageSquare size={16} /> WhatsApp Member
+                             </button>
+                             <button className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+                                 <Send size={18} />
+                             </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- SETTINGS MODAL --- */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] backdrop-blur-sm p-4">
             <div className="bg-white rounded-3xl p-8 w-full max-w-4xl shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -530,7 +628,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         </div>
       )}
 
-      {/* --- GENERATION MODAL: Clean & Efficient --- */}
+      {/* --- GENERATION MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[100] backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-2xl shadow-2xl my-auto animate-in zoom-in duration-200 border border-white/20">
