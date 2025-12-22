@@ -2,6 +2,40 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 /**
+ * Answers complex society-related questions using Gemini 3 Flash.
+ */
+export const askSocietyExpert = async (question: string): Promise<string> => {
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const systemInstruction = `
+      You are a specialized Legal and Administrative Consultant for Co-operative Housing Societies (CHS). 
+      Your knowledge base includes the Model Bye-laws (specifically Maharashtra, but applicable generally), the Co-operative Societies Act, and common housing protocols.
+      
+      Respond to user queries with:
+      1. A clear, direct answer.
+      2. References to relevant Bye-laws or Sections if applicable.
+      3. A note if a General Body resolution or Managing Committee approval is required.
+      4. Professional, firm, yet helpful tone.
+      
+      If the question is not about housing societies, politely decline and ask for a society-related query.
+    `;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: question,
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+      },
+    });
+    return response.text || "I couldn't generate an answer for that. Please try a different query.";
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    return "The AI expert is currently unavailable. Please check your network or try again later.";
+  }
+};
+
+/**
  * Generates a formal housing society notice using Gemini 3 Flash.
  */
 export const generateNoticeDraft = async (topic: string, audience: string, tone: string): Promise<string> => {
