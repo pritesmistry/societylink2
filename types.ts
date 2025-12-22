@@ -37,14 +37,17 @@ export interface Society {
   name: string;
   address: string;
   registrationNumber: string;
-  gstNumber?: string; // Added: GST registration
-  financialYear?: string; // Added: Current accounting period
+  gstNumber?: string; 
+  gstEnabled?: boolean; // Added: Toggle for GST inclusion
+  gstPercentage?: number; // Added: GST rate (e.g., 18)
+  financialYear?: string; 
   contactEmail: string;
   contactPhone: string;
   bankDetails: string;
   upiId?: string; 
   processedBy: string;
-  footerNote: string;
+  footerNote: string; // Legacy
+  footerNotes?: string[]; // Added: Support for multiple footer notes
   totalUnits?: number;
   billLayout?: BillLayout;
   billingHeads?: BillItem[];
@@ -99,8 +102,9 @@ export interface Bill {
   unitNumber: string;
   
   items: BillItem[];
-  interest: number; // Late payment interest or penalty
-  totalAmount: number; // Sum of items + interest
+  interest: number; 
+  gstAmount?: number; // Added: GST calculation for the bill
+  totalAmount: number; // Sum of items + interest + GST
   
   dueDate: string;
   status: PaymentStatus;
@@ -108,22 +112,20 @@ export interface Bill {
   billMonth?: string;
   
   paymentDetails?: PaymentDetails;
-  customNotes?: string[]; // Added: Specific notes for this bill
+  customNotes?: string[]; 
 }
 
 export interface Expense {
   id: string;
   societyId: string;
-  category: string; // This will map to Sub Group
+  category: string; 
   amount: number;
   date: string;
   description: string;
   vendor: string;
-  // Voucher Details
   paymentMode?: 'Cash' | 'Cheque' | 'Online' | 'Journal' | 'Debit Note' | 'Credit Note';
-  referenceNo?: string; // Cheque No or Txn ID
+  referenceNo?: string; 
   bankName?: string;
-  // New Accounting Fields
   mainGroup?: MainAccountGroup;
   accountHeadId?: string;
   accountHeadName?: string;
@@ -138,7 +140,6 @@ export interface Income {
     description: string;
     payer: string;
     mode: 'Bank Transfer' | 'Cheque' | 'Cash';
-    // Voucher Details
     referenceNo?: string;
     bankName?: string;
 }
