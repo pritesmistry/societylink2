@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, HelpCircle, ChevronDown, ChevronUp, Copy, Check, Info, BookOpen, Scale, Landmark, Users, Home, Sparkles, Loader2, Wand2, Send, MessageSquareText } from 'lucide-react';
+import { Search, HelpCircle, ChevronDown, ChevronUp, Copy, Check, Info, BookOpen, Scale, Landmark, Users, Home, Sparkles, Loader2, Wand2, Send, MessageSquareText, FileText, Download, ExternalLink, ShieldCheck } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 import { askSocietyExpert } from '../services/geminiService';
 
@@ -128,6 +128,12 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ balances }) => {
         }
     };
 
+    const handleDownloadByeLaws = () => {
+        // Link to the latest Model Bye-laws (typically Maharashtra Cooperative Housing Society Bye-laws)
+        // Using a reliable government portal or standardized federation link
+        window.open('https://sahakarayukt.maharashtra.gov.in/Site/Upload/GR/Housing%20Bye-laws%202014.pdf', '_blank');
+    };
+
     const filteredData = SOCIETY_QA_DATA.map(cat => ({
         ...cat,
         items: cat.items.filter(i => 
@@ -158,6 +164,37 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ balances }) => {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
+                </div>
+            </div>
+
+            {/* --- OFFICIAL DOCUMENTATION SECTION --- */}
+            <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-2xl border border-slate-800 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-10 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                    <FileText size={180} />
+                </div>
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-900/40">
+                                <Scale size={24} />
+                            </div>
+                            <h3 className="text-2xl font-black uppercase tracking-tighter">Official Model Bye-Laws</h3>
+                        </div>
+                        <p className="text-slate-400 text-sm leading-relaxed max-w-xl">
+                            Access the complete, latest Model Bye-Laws for Co-operative Housing Societies. 
+                            Essential for management committees to ensure legal compliance and smooth administration.
+                        </p>
+                    </div>
+                    <div className="shrink-0 flex flex-col gap-3">
+                        <button 
+                            onClick={handleDownloadByeLaws}
+                            className="bg-white text-slate-900 px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all shadow-xl active:scale-95"
+                        >
+                            <Download size={18} />
+                            Download Latest PDF
+                        </button>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.2em] text-center">Reference: 2014-2024 Updated Edition</p>
+                    </div>
                 </div>
             </div>
 
@@ -291,8 +328,8 @@ const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ balances }) => {
                 )}
             </div>
 
-            <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 flex gap-4 mt-8">
-                <Info className="text-amber-600 shrink-0" size={24} />
+            <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 flex gap-4 mt-8 shadow-sm">
+                <ShieldCheck className="text-amber-600 shrink-0" size={24} />
                 <div className="space-y-1">
                     <p className="text-sm font-black text-amber-900 uppercase">Legal Disclaimer</p>
                     <p className="text-xs text-amber-800 leading-relaxed font-medium">
