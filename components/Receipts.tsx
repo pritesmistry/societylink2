@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, Society, PaymentStatus, PaymentDetails } from '../types';
-import { Search, Download, Eye, Calendar, Upload, FileText, Plus, CreditCard, AlertCircle, Check, X } from 'lucide-react';
+import { Search, Download, Eye, Calendar, Upload, FileText, Plus, CreditCard, AlertCircle, Check, X, Trash2, XCircle } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ReceiptsProps {
@@ -78,6 +78,18 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
   const handleViewReceipt = (bill: Bill) => {
     setSelectedReceipt(bill);
     setIsViewModalOpen(true);
+  };
+
+  const handleCancelReceipt = (bill: Bill) => {
+    if (window.confirm(`Are you sure you want to VOID and CANCEL this receipt (RCP-${bill.id})? \n\nThe payment will be reverted and the bill will become PENDING again.`)) {
+        onUpdateBill({
+            ...bill,
+            status: PaymentStatus.PENDING,
+            paymentDetails: undefined
+        });
+        setIsViewModalOpen(false);
+        setSelectedReceipt(null);
+    }
   };
 
   const handleSaveReceipt = (e: React.FormEvent) => {
@@ -426,12 +438,18 @@ const Receipts: React.FC<ReceiptsProps> = ({ bills, activeSociety, onBulkUpdateB
       {isViewModalOpen && selectedReceipt && selectedReceipt.paymentDetails && (
           <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70] backdrop-blur-sm p-4 overflow-y-auto">
               <div className="relative w-full max-w-2xl flex flex-col items-center">
-                  <div className="flex gap-4 mb-4">
+                  <div className="flex flex-wrap justify-center gap-4 mb-4">
                       <button 
                         onClick={() => downloadPDF('receipt-preview-full', `Receipt_${selectedReceipt.id}.pdf`)}
                         className="bg-white text-green-600 px-6 py-2 rounded-full font-bold shadow-lg hover:bg-green-50 flex items-center gap-2"
                       >
                           <Download size={20} /> Download PDF
+                      </button>
+                      <button 
+                        onClick={() => handleCancelReceipt(selectedReceipt)}
+                        className="bg-red-600 text-white px-6 py-2 rounded-full font-bold shadow-lg hover:bg-red-700 flex items-center gap-2"
+                      >
+                          <XCircle size={20} /> VOID / CANCEL RECEIPT
                       </button>
                       <button 
                         onClick={() => setIsViewModalOpen(false)}
