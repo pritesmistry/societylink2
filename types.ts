@@ -37,10 +37,12 @@ export interface Society {
   name: string;
   address: string;
   registrationNumber: string;
+  gstNumber?: string; // Added: GST registration
+  financialYear?: string; // Added: Current accounting period
   contactEmail: string;
   contactPhone: string;
   bankDetails: string;
-  upiId?: string; // Added for QR Code generation
+  upiId?: string; 
   processedBy: string;
   footerNote: string;
   totalUnits?: number;
