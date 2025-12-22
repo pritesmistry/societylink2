@@ -305,7 +305,7 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
   const { days, firstDay, year, month } = getDaysInMonth(calDate);
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-  const btnClass = "p-2 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px] group relative";
+  const btnClass = "p-2 hover:bg-slate-50 rounded-lg text-slate-600 hover:text-indigo-600 transition-colors flex flex-col items-center gap-1 min-w-[60px] group relative active:scale-95";
   const iconSize = 24; 
   const labelClass = "text-[10px] font-medium uppercase tracking-wide group-hover:text-indigo-600 text-slate-500";
 
@@ -316,12 +316,22 @@ const StandardToolbar: React.FC<StandardToolbarProps> = ({
         <span className={labelClass}>Save</span>
       </button>
       
-      <button onClick={onModify} className={btnClass} title="Modify / Edit">
+      <button 
+        onClick={onModify} 
+        disabled={!onModify}
+        className={`${btnClass} ${!onModify ? 'opacity-30 grayscale cursor-not-allowed' : ''}`} 
+        title="Modify / Edit"
+      >
         <Edit3 size={iconSize} className="text-blue-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Modify</span>
       </button>
       
-      <button onClick={onSearch} className={btnClass} title="Search">
+      <button 
+        onClick={onSearch} 
+        disabled={!onSearch}
+        className={`${btnClass} ${!onSearch ? 'opacity-30 grayscale cursor-not-allowed' : ''}`} 
+        title="Search"
+      >
         <Search size={iconSize} className="text-purple-600 group-hover:scale-110 transition-transform" />
         <span className={labelClass}>Search</span>
       </button>

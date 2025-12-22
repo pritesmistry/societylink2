@@ -95,11 +95,9 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
             const line = lines[i].trim();
             if (!line) continue;
 
-            // Expected CSV: Name,Flat No,Sq Ft,Opening Bal,Email,Contact,Type
             const parts = line.split(',').map(p => p.trim());
             
             if (parts.length >= 2) { 
-                // Destructure safely
                 const [
                   name, unitNumber, sqFt, openingBalance, email, contact, typeRaw
                 ] = parts;
@@ -159,8 +157,8 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
   return (
     <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
-        onNew={handleOpenAddModal}
         onSave={handleOpenAddModal}
+        onModify={handleOpenAddModal}
         onSearch={() => searchInputRef.current?.focus()}
         balances={balances}
       />
@@ -222,7 +220,6 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredResidents.map(resident => (
           <div key={resident.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow group relative">
-            {/* Header Row with Actions */}
             <div className="flex justify-between items-start mb-3">
               <div className="flex-1">
                 <h3 className="font-semibold text-slate-800 text-lg">{resident.name}</h3>
@@ -293,10 +290,7 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
           <div className="bg-white rounded-xl p-6 w-full max-w-3xl shadow-2xl my-auto">
             <h2 className="text-xl font-bold mb-6 text-slate-800">{editingId ? 'Edit Member Details' : 'Add New Member'}</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Basic Info */}
               <div className="col-span-1 md:col-span-2 font-semibold text-slate-500 border-b pb-1">Member Information</div>
-              
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Name *</label>
                 <input 
@@ -317,7 +311,6 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
                     onChange={e => setFormData({...formData, unitNumber: e.target.value})}
                   />
               </div>
-              
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Sq. Ft. *</label>
                 <input 
@@ -338,8 +331,6 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
                     onChange={e => setFormData({...formData, openingBalance: Number(e.target.value)})}
                   />
               </div>
-
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                 <input 
@@ -358,7 +349,6 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
                   onChange={e => setFormData({...formData, contact: e.target.value})}
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">WhatsApp Number</label>
                 <input 
@@ -369,7 +359,6 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
                   placeholder="+91..."
                 />
               </div>
-
                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
                   <select 
@@ -381,7 +370,6 @@ const Residents: React.FC<ResidentsProps> = ({ residents, societyId, onAddReside
                     <option value="Tenant">Tenant</option>
                   </select>
                 </div>
-
               <div className="col-span-1 md:col-span-2 flex justify-end gap-3 mt-4 pt-4 border-t border-slate-100">
                 <button 
                   type="button"

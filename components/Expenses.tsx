@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Expense, Resident, Bill, PaymentStatus } from '../types';
 import { EXPENSE_CATEGORIES } from '../constants';
-import { Plus, Tag, Calendar, User, BookOpen, Users } from 'lucide-react';
+import { Plus, Tag, Calendar, User, BookOpen, Users, Search } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface ExpensesProps {
@@ -16,8 +16,20 @@ interface ExpensesProps {
 
 const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, residents = [], bills = [], balances }) => {
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'PERSONAL'>('GENERAL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState<Partial<Expense>>({ amount: 0 });
+
+  // Filtered Expenses
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(e => 
+      e.description.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      e.vendor.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [expenses, searchQuery]);
 
   // Calculate Personal Ledger (Member Balances)
   const personalLedger = useMemo(() => {
@@ -27,14 +39,13 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
           
           const totalPaid = memberBills
             .filter(b => b.status === PaymentStatus.PAID)
-            .reduce((sum, b) => sum + b.totalAmount, 0); // Simplified assuming full payment for paid bills
+            .reduce((sum, b) => sum + b.totalAmount, 0);
           
-          // Actual outstanding check
           const outstanding = memberBills
             .filter(b => b.status !== PaymentStatus.PAID)
             .reduce((sum, b) => sum + b.totalAmount, 0);
 
-          const currentBalance = r.openingBalance + outstanding; // Simple logic: Opening + Unpaid Bills
+          const currentBalance = r.openingBalance + outstanding;
 
           return {
               ...r,
@@ -63,38 +74,53 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <StandardToolbar 
         onSave={() => activeTab === 'GENERAL' ? setIsModalOpen(true) : alert("Manage Members in Residents tab")}
+        onModify={() => activeTab === 'GENERAL' ? setIsModalOpen(true) : null}
+        onSearch={() => searchInputRef.current?.focus()}
         balances={balances}
       />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h2 className="text-xl font-semibold text-slate-800">Ledger</h2>
-            <p className="text-sm text-slate-500 mt-1">General Expenses & Members Accounts</p>
+            <h2 className="text-xl font-semibold text-slate-800">Ledger Management</h2>
+            <p className="text-sm text-slate-500 mt-1">General Society Expenses & Member Balances</p>
         </div>
-        {activeTab === 'GENERAL' && (
-            <button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700"
-            >
-            <Plus size={18} />
-            Log Expense
-            </button>
-        )}
+        <div className="flex gap-2 w-full md:w-auto">
+             <div className="relative flex-1 md:w-64">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  ref={searchInputRef}
+                  type="text" 
+                  placeholder="Search ledger..." 
+                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+            {activeTab === 'GENERAL' && (
+                <button 
+                onClick={() => setIsModalOpen(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-md whitespace-nowrap"
+                >
+                <Plus size={18} />
+                Log Expense
+                </button>
+            )}
+        </div>
       </div>
 
       <div className="flex gap-2 border-b border-slate-200 pb-1">
           <button 
             onClick={() => setActiveTab('GENERAL')}
-            className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'GENERAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'GENERAL' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
               <BookOpen size={16} /> General Ledger
           </button>
           <button 
             onClick={() => setActiveTab('PERSONAL')}
-            className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'PERSONAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
+            className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'PERSONAL' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white text-slate-600 hover:bg-slate-100'}`}
           >
               <Users size={16} /> Members Ledger
           </button>
@@ -102,8 +128,8 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
 
       {activeTab === 'GENERAL' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {expenses.map(expense => (
-            <div key={expense.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
+            {filteredExpenses.map(expense => (
+            <div key={expense.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start mb-2">
                     <div>
                     <h3 className="font-semibold text-slate-800">{expense.description}</h3>
@@ -112,7 +138,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
                         {expense.category}
                     </div>
                     </div>
-                    <span className="font-bold text-lg text-slate-800">-₹{expense.amount}</span>
+                    <span className="font-bold text-lg text-slate-800">-₹{expense.amount.toLocaleString()}</span>
                 </div>
                 <div className="border-t border-slate-100 pt-3 mt-2 flex justify-between text-sm text-slate-500">
                 <div className="flex items-center gap-2">
@@ -126,17 +152,17 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
                 </div>
             </div>
             ))}
-            {expenses.length === 0 && (
+            {filteredExpenses.length === 0 && (
                 <div className="col-span-full text-center py-12 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
-                    No expenses recorded in General Ledger.
+                    No matching records found in General Ledger.
                 </div>
             )}
           </div>
       )}
 
       {activeTab === 'PERSONAL' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-              <table className="w-full text-left">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
+              <table className="w-full text-left min-w-[800px]">
                   <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
                           <th className="p-4 font-semibold text-slate-600 text-sm">Unit No</th>
@@ -169,14 +195,16 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
       )}
 
        {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Log General Ledger Expense</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl p-8 w-full max-w-md shadow-2xl animate-in zoom-in duration-200">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <Plus className="text-indigo-600" /> Log General Ledger Expense
+            </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Category (Head)</label>
                 <select 
-                  className="w-full p-2 border border-slate-300 rounded-md"
+                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                   required
                   onChange={e => setNewExpense({...newExpense, category: e.target.value})}
                 >
@@ -191,7 +219,8 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
                 <input 
                   type="text" 
                   required
-                  className="w-full p-2 border border-slate-300 rounded-md"
+                  placeholder="Service description"
+                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                   onChange={e => setNewExpense({...newExpense, description: e.target.value})}
                 />
               </div>
@@ -200,7 +229,8 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
                 <input 
                   type="text" 
                   required
-                  className="w-full p-2 border border-slate-300 rounded-md"
+                  placeholder="Business name"
+                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                   onChange={e => setNewExpense({...newExpense, vendor: e.target.value})}
                 />
               </div>
@@ -211,7 +241,7 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
                     type="number" 
                     required
                     min="0"
-                    className="w-full p-2 border border-slate-300 rounded-md"
+                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     onChange={e => setNewExpense({...newExpense, amount: parseFloat(e.target.value)})}
                   />
                 </div>
@@ -220,23 +250,23 @@ const Expenses: React.FC<ExpensesProps> = ({ expenses, societyId, onAddExpense, 
                   <input 
                     type="date" 
                     required
-                    className="w-full p-2 border border-slate-300 rounded-md"
+                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                     onChange={e => setNewExpense({...newExpense, date: e.target.value})}
                   />
                 </div>
               </div>
               
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-slate-100">
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md"
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 shadow-md transition-all active:scale-95"
                 >
                   Log Expense
                 </button>

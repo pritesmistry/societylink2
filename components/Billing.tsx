@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical, Sparkles, Wand2, MessageSquare, Send } from 'lucide-react';
+import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical, Sparkles, Wand2, MessageSquare, Send, Search } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 import { generateArrearsRecoveryStrategy } from '../services/geminiService';
 
@@ -26,6 +26,9 @@ interface BillingProps {
 
 const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSociety, onGenerateBill, onBulkAddBills, onUpdateSociety, onUpdateBill, onBulkUpdateBills, balances }) => {
   const [filter, setFilter] = useState<PaymentStatus | 'All'>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -66,7 +69,15 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
 
   const [items, setItems] = useState<BillItem[]>(activeSociety.billingHeads || []);
 
-  const filteredBills = filter === 'All' ? bills : bills.filter(b => b.status === filter);
+  const filteredBills = useMemo(() => {
+    return bills.filter(b => {
+      const matchesFilter = filter === 'All' || b.status === filter;
+      const matchesSearch = b.residentName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           b.unitNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           b.id.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [bills, filter, searchQuery]);
 
   // Helper to find the last receipt for a resident
   const lastReceipt = useMemo(() => {
@@ -191,6 +202,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             setTempLayout(activeSociety.billLayout || tempLayout);
             setIsSettingsOpen(true); 
         }}
+        onSearch={() => searchInputRef.current?.focus()}
         balances={balances} 
       />
 
@@ -202,11 +214,22 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
-            <button onClick={() => setIsSettingsOpen(true)} className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-bold">
-                <Settings size={18} /> Layout Customization
+        <div className="flex gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  ref={searchInputRef}
+                  type="text" 
+                  placeholder="Search by name/unit..." 
+                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+            </div>
+            <button onClick={() => setIsSettingsOpen(true)} className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-bold whitespace-nowrap">
+                <Settings size={18} /> Layout
             </button>
-            <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-md">
+            <button onClick={() => setIsModalOpen(true)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 shadow-md whitespace-nowrap">
                 <Plus size={18} /> New Bill
             </button>
         </div>
@@ -242,7 +265,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         ))}
       </div>
 
-      {/* --- AI ARREARS RECOVERY MODAL --- */}
+      {/* AI ARREARS RECOVERY MODAL */}
       {isAiPanelOpen && selectedBillForAi && (
           <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[130] backdrop-blur-md p-4">
               <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
@@ -311,7 +334,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
           </div>
       )}
 
-      {/* --- SETTINGS MODAL --- */}
+      {/* SETTINGS MODAL */}
       {isSettingsOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] backdrop-blur-sm p-4">
             <div className="bg-white rounded-3xl p-8 w-full max-w-4xl shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -325,7 +348,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="space-y-8">
-                        {/* 1. Logo & Branding */}
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Society Branding Logo</label>
                             <div className="flex items-center gap-6">
@@ -342,7 +364,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </div>
                         </div>
 
-                        {/* 2. Multiple Footer Notes */}
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                             <div className="flex justify-between items-center mb-4">
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Custom Footer Notes</label>
@@ -364,7 +385,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </div>
                         </div>
 
-                        {/* 3. GST Option */}
                         <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
                              <div className="flex justify-between items-center mb-4">
                                 <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><Percent size={14} /> GST Inclusion</h4>
@@ -390,7 +410,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     </div>
 
                     <div className="space-y-8">
-                        {/* 4. Column Selection */}
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Columns size={14} /> Visible Bill Columns</h4>
                              <div className="grid grid-cols-2 gap-4">
@@ -408,7 +427,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                              </div>
                         </div>
 
-                        {/* 5. 4-5 Style Options */}
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><LayoutTemplate size={14} /> Preview Style Templates</h4>
                              <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
@@ -446,7 +464,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         </div>
       )}
 
-      {/* --- PREVIEW MODAL: Implementing 5 Styles --- */}
+      {/* PREVIEW MODAL */}
       {isPreviewOpen && previewBill && (
         <div className="fixed inset-0 bg-slate-900/95 flex flex-col items-center z-[120] p-4 overflow-y-auto backdrop-blur-md">
            <div className="sticky top-0 w-full max-w-[210mm] bg-white border border-slate-200 rounded-2xl p-4 mb-6 shadow-2xl flex justify-between items-center gap-4 z-20">
@@ -464,7 +482,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
            </div>
 
            <div id="invoice-render" className="bg-white w-[210mm] min-h-[297mm] shadow-2xl mx-auto flex flex-col text-slate-800 relative">
-                {/* 1. BLANK RECEIPT OPTION */}
                 {activeSociety.billLayout?.template === 'MINIMAL' ? (
                     <div className="p-16 flex flex-col h-full items-center justify-center text-center opacity-30">
                          <div className="border-4 border-dashed border-slate-300 rounded-[4rem] p-24">
@@ -475,7 +492,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                     </div>
                 ) : (
                     <div className="p-12 flex-1 flex flex-col">
-                        {/* Header Branding */}
                         <div className="flex justify-between items-start border-b-4 border-indigo-600 pb-8 mb-10">
                             <div className="flex items-start gap-6">
                                 {activeSociety.billLayout?.logo && (
@@ -502,7 +518,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </div>
                         </div>
 
-                        {/* Resident Summary */}
                         <div className="grid grid-cols-2 gap-8 mb-10 bg-indigo-50/50 p-8 rounded-[2.5rem] border border-indigo-100">
                             <div>
                                 <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Member / Payee</h4>
@@ -516,7 +531,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </div>
                         </div>
 
-                        {/* Charges Table with Column Visibility */}
                         <table className="w-full mb-10 border-collapse">
                             <thead>
                                 <tr className="bg-slate-900 text-white">
@@ -554,7 +568,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </tfoot>
                         </table>
 
-                        {/* 2. SPLIT RECEIPT OPTION: "Bill Top + Previous Month Receipt Down" */}
                         {activeSociety.billLayout?.template === 'SPLIT_RECEIPT' && lastReceipt && (
                             <div className="mt-12 pt-12 border-t-8 border-dashed border-slate-100 animate-in slide-in-from-bottom-8 duration-700">
                                 <div className="bg-emerald-50/50 p-10 rounded-[3rem] border-2 border-emerald-100 relative overflow-hidden">
@@ -580,7 +593,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                             </div>
                         )}
 
-                        {/* 3. LEDGER OPTION: Shows simplified member dues history */}
                         {activeSociety.billLayout?.template === 'LEDGER' && (
                              <div className="mt-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
                                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Member Ledger Quick Reference</h4>
@@ -616,7 +628,6 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         </div>
                     </div>
                 )}
-                {/* Print Branding Footer */}
                 <div className="h-10 bg-indigo-600 w-full flex items-center justify-between px-12 text-[9px] text-indigo-100 font-black uppercase tracking-[0.2em]">
                     <span>Securely Generated by SocietyLink OS</span>
                     <div className="flex gap-6">
@@ -628,7 +639,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         </div>
       )}
 
-      {/* --- GENERATION MODAL --- */}
+      {/* GENERATION MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[100] backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-2xl shadow-2xl my-auto animate-in zoom-in duration-200 border border-white/20">
