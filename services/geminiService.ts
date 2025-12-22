@@ -36,6 +36,33 @@ export const askSocietyExpert = async (question: string): Promise<string> => {
 };
 
 /**
+ * Generates a custom society template based on description.
+ */
+export const generateCustomTemplate = async (description: string): Promise<string> => {
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const prompt = `
+        You are a Society Manager. Draft a professional template for a Co-op Housing Society based on the following requirement:
+        REQUIREMENT: ${description}
+        
+        Guidelines:
+        1. Use placeholders like [Society Name], [Date], [Member Name] where appropriate.
+        2. Keep the tone professional and authoritative.
+        3. Ensure the structure is clear (Subject, Body, Sign-off).
+        4. Do not include markdown formatting like bold (**) or headers (#), return as clean plain text with spacing.
+      `;
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+      return response.text || "Failed to generate template.";
+    } catch (error) {
+      console.error("Error:", error);
+      return "Error generating AI template.";
+    }
+  };
+
+/**
  * Generates a formal housing society notice using Gemini 3 Flash.
  */
 export const generateNoticeDraft = async (topic: string, audience: string, tone: string): Promise<string> => {
