@@ -23,7 +23,7 @@ export interface BillLayout {
   colorTheme: string; // Hex code
   showLogoPlaceholder: boolean;
   logo?: string; // Base64 encoded logo image
-  template?: 'MODERN' | 'CLASSIC' | 'MINIMAL' | 'SPLIT_RECEIPT';
+  template?: 'MODERN' | 'CLASSIC' | 'MINIMAL' | 'SPLIT_RECEIPT' | 'LEDGER';
   columns: {
     description: boolean;
     type: boolean;
