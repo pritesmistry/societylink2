@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ViewState } from '../types';
-import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket, FileType, Book } from 'lucide-react';
+import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket, FileType, Book, HelpCircle } from 'lucide-react';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -26,6 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { view: 'MINUTES', label: 'Minutes', icon: BookOpen },
     { view: 'NOTICES', label: 'Notices', icon: Bell },
     { view: 'TEMPLATES', label: 'Templates', icon: FileType },
+    { view: 'KNOWLEDGE_BASE', label: 'Society Q&A', icon: HelpCircle },
     { view: 'AI_INSIGHTS', label: 'AI Insights', icon: BrainCircuit },
   ];
 

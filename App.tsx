@@ -17,6 +17,7 @@ import BankReconciliation from './components/BankReconciliation';
 import StatutoryRegisters from './components/StatutoryRegisters';
 import PaymentVouchers from './components/PaymentVouchers';
 import Templates from './components/Templates';
+import KnowledgeBase from './components/KnowledgeBase';
 import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income, PaymentStatus, AccountHead } from './types';
 import { MOCK_BILLS, MOCK_EXPENSES, MOCK_NOTICES, MOCK_RESIDENTS, MOCK_SOCIETIES, MOCK_MINUTES, MOCK_INCOME, INITIAL_ACCOUNT_HEADS } from './constants';
 import { Clock, Wallet, Landmark } from 'lucide-react';
@@ -301,6 +302,8 @@ const App: React.FC = () => {
         );
       case 'TEMPLATES':
         return <Templates balances={financialBalances} />;
+      case 'KNOWLEDGE_BASE':
+        return <KnowledgeBase balances={financialBalances} />;
       case 'AI_INSIGHTS':
         return <AIInsights bills={activeBills} expenses={activeExpenses} balances={financialBalances} />;
       default:
@@ -318,6 +321,7 @@ const App: React.FC = () => {
             <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tighter">
               {currentView === 'AI_INSIGHTS' ? 'AI Financial Analysis' : 
                currentView === 'SOCIETIES' ? 'Estate Registry' :
+               currentView === 'KNOWLEDGE_BASE' ? 'Society Knowledge Folder' :
                currentView.replace('_', ' ')}
             </h2>
             <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Admin Dashboard Control Panel</p>
