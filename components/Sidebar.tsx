@@ -1,14 +1,15 @@
 
 import React from 'react';
-import { ViewState } from '../types';
-import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket, FileType, Book, HelpCircle } from 'lucide-react';
+import { ViewState, User } from '../types';
+import { LayoutDashboard, Users, Receipt, CreditCard, Bell, BrainCircuit, LogOut, Building2, FileBarChart, BookOpen, ScrollText, ClipboardList, Landmark, BookCopy, TrendingUp, Ticket, FileType, Book, HelpCircle, ShieldHalf } from 'lucide-react';
 
 interface SidebarProps {
   currentView: ViewState;
   onChangeView: (view: ViewState) => void;
+  currentUser: User;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, currentUser }) => {
   
   const menuItems: { view: ViewState; label: string; icon: React.ElementType }[] = [
     { view: 'DASHBOARD', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,7 +29,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
     { view: 'TEMPLATES', label: 'Templates', icon: FileType },
     { view: 'KNOWLEDGE_BASE', label: 'Society Q&A', icon: HelpCircle },
     { view: 'AI_INSIGHTS', label: 'AI Insights', icon: BrainCircuit },
+    { view: 'SECURITY', label: 'Access Control', icon: ShieldHalf },
   ];
+
+  // Filter items based on permissions
+  const filteredMenuItems = menuItems.filter(item => {
+      if (currentUser.role === 'Admin') return true;
+      if (item.view === 'SECURITY') return false; // Only admin sees security
+      return currentUser.permissions[item.view];
+  });
 
   return (
     <div className="h-screen w-64 bg-slate-900 text-white fixed left-0 top-0 flex flex-col shadow-xl z-20">
@@ -36,11 +45,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
           SocietyLink
         </h1>
-        <p className="text-xs text-slate-400 mt-1">Estate Management OS</p>
+        <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-widest">Estate OS</p>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
+        {filteredMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.view;
           return (
@@ -60,10 +69,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) => {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-slate-800 space-y-2">
+        <div className="px-4 py-2 bg-slate-800/50 rounded-xl border border-slate-700/50">
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-tighter">Current Session</p>
+            <p className="text-xs font-bold text-indigo-400 truncate">{currentUser.name}</p>
+        </div>
         <button className="flex items-center gap-3 text-slate-400 hover:text-white transition-colors px-4 py-2 w-full">
           <LogOut size={18} />
-          <span>Logout</span>
+          <span className="text-sm">Logout</span>
         </button>
       </div>
     </div>

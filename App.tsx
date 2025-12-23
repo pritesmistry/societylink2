@@ -18,13 +18,40 @@ import StatutoryRegisters from './components/StatutoryRegisters';
 import PaymentVouchers from './components/PaymentVouchers';
 import Templates from './components/Templates';
 import KnowledgeBase from './components/KnowledgeBase';
-import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income, PaymentStatus, AccountHead } from './types';
+import Security from './components/Security';
+import { ViewState, Bill, Resident, Expense, Notice, Society, MeetingMinutes, Income, PaymentStatus, AccountHead, User } from './types';
 import { MOCK_BILLS, MOCK_EXPENSES, MOCK_NOTICES, MOCK_RESIDENTS, MOCK_SOCIETIES, MOCK_MINUTES, MOCK_INCOME, INITIAL_ACCOUNT_HEADS } from './constants';
-import { Clock, Wallet, Landmark } from 'lucide-react';
+import { Clock, Wallet, Landmark, ShieldAlert, Lock, ArrowLeft } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Security State
+  const [users, setUsers] = useState<User[]>([
+    {
+      id: 'admin-1',
+      name: 'Super Admin',
+      role: 'Admin',
+      permissions: {} as any // Admin sees all
+    },
+    {
+      id: 'staff-1',
+      name: 'Clerk Operator',
+      role: 'Staff',
+      permissions: {
+        'BILLING': true,
+        'NOTICES': true,
+        'RESIDENTS': true,
+        'DASHBOARD': true
+      } as any
+    }
+  ]);
+  const [activeUserId, setActiveUserId] = useState<string>('admin-1');
+
+  const currentUser = useMemo(() => 
+    users.find(u => u.id === activeUserId) || users[0], 
+  [users, activeUserId]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -84,6 +111,10 @@ const App: React.FC = () => {
   }, [activeBills, activeIncomes, activeExpenses]);
 
   // Handlers
+  const handleUpdateUser = (updated: User) => setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+  const handleAddUser = (newUser: User) => setUsers(prev => [...prev, newUser]);
+  const handleDeleteUser = (id: string) => setUsers(prev => prev.filter(u => u.id !== id));
+
   const handleAddSociety = (society: Society) => {
     setSocieties(prev => [...prev, society]);
     setActiveSocietyId(society.id);
@@ -155,7 +186,36 @@ const App: React.FC = () => {
 
   const handleAddAccountHead = (head: AccountHead) => setAccountHeads(prev => [...prev, head]);
 
+  // Permission Guard
+  const hasAccess = (view: ViewState) => {
+      if (currentUser.role === 'Admin') return true;
+      if (view === 'SECURITY') return false; // Non-admins never see security
+      return currentUser.permissions[view] === true;
+  };
+
   const renderContent = () => {
+    if (!hasAccess(currentView)) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] bg-white rounded-[3rem] border border-slate-100 shadow-sm text-center p-12">
+                <div className="w-24 h-24 bg-red-50 text-red-600 rounded-full flex items-center justify-center mb-8">
+                    <Lock size={48} />
+                </div>
+                <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tighter mb-4">Access Restricted</h2>
+                <p className="text-slate-500 max-w-md mb-8 font-medium leading-relaxed">
+                    You do not have permission to access the <span className="text-indigo-600 font-bold">"{currentView.replace('_', ' ')}"</span> module. 
+                    Please contact your Society Administrator to update your access profile.
+                </p>
+                <button 
+                    onClick={() => setCurrentView('DASHBOARD')}
+                    className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
+                >
+                    <ArrowLeft size={18} />
+                    Return to Dashboard
+                </button>
+            </div>
+        );
+    }
+
     switch (currentView) {
       case 'DASHBOARD':
         return <Dashboard bills={activeBills} expenses={activeExpenses} residentCount={activeResidents.length} />;
@@ -300,6 +360,16 @@ const App: React.FC = () => {
                 balances={financialBalances}
             />
         );
+      case 'SECURITY':
+        return (
+            <Security 
+                users={users}
+                onUpdateUser={handleUpdateUser}
+                onAddUser={handleAddUser}
+                onDeleteUser={handleDeleteUser}
+                balances={financialBalances}
+            />
+        );
       case 'TEMPLATES':
         return <Templates balances={financialBalances} />;
       case 'KNOWLEDGE_BASE':
@@ -315,23 +385,36 @@ const App: React.FC = () => {
       if (currentView === 'AI_INSIGHTS') return 'AI Financial Analysis';
       if (currentView === 'SOCIETIES') return 'Society Registry';
       if (currentView === 'KNOWLEDGE_BASE') return 'Society Knowledge Hub';
+      if (currentView === 'SECURITY') return 'Access Control Panel';
       return currentView.replace('_', ' ');
   };
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <Sidebar currentView={currentView} onChangeView={setCurrentView} />
+      <Sidebar currentView={currentView} onChangeView={setCurrentView} currentUser={currentUser} />
       
       <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen relative">
-        <header className="sticky top-0 z-40 flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-100 transition-all">
-          <div className="mb-4 md:mb-0">
+        <header className="sticky top-0 z-40 flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-slate-100 transition-all">
+          <div className="mb-4 lg:mb-0">
             <h2 className="text-2xl font-bold text-slate-800 uppercase tracking-tighter">
               {getHeaderTitle()}
             </h2>
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Admin Dashboard Control Panel</p>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Admin Control Panel</p>
           </div>
           
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+          <div className="flex flex-col lg:flex-row items-center gap-4 w-full lg:w-auto">
+            {/* Quick User Switch (Demo Purpose) */}
+            <div className="flex items-center gap-2 bg-indigo-50 px-3 py-2 rounded-xl border border-indigo-100">
+                <ShieldAlert size={18} className="text-indigo-600" />
+                <select 
+                    className="bg-transparent text-xs font-black text-indigo-700 outline-none uppercase"
+                    value={activeUserId}
+                    onChange={e => { setActiveUserId(e.target.value); setCurrentView('DASHBOARD'); }}
+                >
+                    {users.map(u => <option key={u.id} value={u.id}>{u.role}: {u.name}</option>)}
+                </select>
+            </div>
+
             <div className="flex gap-4">
                 <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg border border-green-100" title="Cash Balance">
                     <Wallet size={18} className="text-green-600" />
@@ -349,9 +432,9 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
+            <div className="h-10 w-px bg-slate-200 hidden lg:block"></div>
 
-            <div className="flex items-center gap-3 text-right bg-slate-50 px-4 py-2 rounded-lg border border-slate-100 w-full md:w-auto justify-center md:justify-end">
+            <div className="flex items-center gap-3 text-right bg-slate-50 px-4 py-2 rounded-lg border border-slate-100 w-full lg:w-auto justify-center lg:justify-end">
                 <Clock className="text-indigo-600" size={24} />
                 <div>
                   <p className="text-xl font-black text-slate-700 leading-none">
@@ -363,10 +446,10 @@ const App: React.FC = () => {
                 </div>
             </div>
 
-            <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
+            <div className="h-10 w-px bg-slate-200 hidden lg:block"></div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-                <div className="text-right hidden md:block">
+            <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+                <div className="text-right hidden lg:block">
                 <p className="text-sm font-black text-indigo-900">{activeSociety.name}</p>
                 <p className="text-[10px] font-bold text-slate-400">ID: {activeSociety.id}</p>
                 </div>

@@ -15,14 +15,21 @@ export interface AccountHead {
   societyId: string;
 }
 
+export interface User {
+  id: string;
+  name: string;
+  role: 'Admin' | 'Staff' | 'Accountant';
+  permissions: Record<ViewState, boolean>;
+}
+
 export interface BillLayout {
   title: string;
   showSocietyAddress: boolean;
   showBankDetails: boolean;
   showFooterNote: boolean;
-  colorTheme: string; // Hex code
+  colorTheme: string; 
   showLogoPlaceholder: boolean;
-  logo?: string; // Base64 encoded logo image
+  logo?: string; 
   template?: 'MODERN' | 'CLASSIC' | 'MINIMAL' | 'SPLIT_RECEIPT' | 'LEDGER';
   columns: {
     description: boolean;
@@ -38,16 +45,16 @@ export interface Society {
   address: string;
   registrationNumber: string;
   gstNumber?: string; 
-  gstEnabled?: boolean; // Added: Toggle for GST inclusion
-  gstPercentage?: number; // Added: GST rate (e.g., 18)
+  gstEnabled?: boolean; 
+  gstPercentage?: number; 
   financialYear?: string; 
   contactEmail: string;
   contactPhone: string;
   bankDetails: string;
   upiId?: string; 
   processedBy: string;
-  footerNote: string; // Legacy
-  footerNotes?: string[]; // Added: Support for multiple footer notes
+  footerNote: string; 
+  footerNotes?: string[]; 
   totalUnits?: number;
   billLayout?: BillLayout;
   billingHeads?: BillItem[];
@@ -57,16 +64,12 @@ export interface Resident {
   id: string;
   societyId: string;
   name: string;
-  unitNumber: string; // Flat No.
+  unitNumber: string; 
   contact: string;
   email: string;
   occupancyType: 'Owner' | 'Tenant';
-  
-  // Simplified Billing Fields
   sqFt: number;
   openingBalance: number;
-
-  // Statutory Register Fields (Optional)
   membershipDate?: string;
   shareCertificateNumber?: string;
   shareDistinctiveFrom?: number;
@@ -74,8 +77,6 @@ export interface Resident {
   nomineeName?: string;
   nomineeRelation?: string;
   nominationDate?: string;
-  
-  // Additional Contact
   whatsappNumber?: string;
 }
 
@@ -83,8 +84,8 @@ export interface BillItem {
   id: string;
   description: string;
   type: 'Fixed' | 'SqFt';
-  rate: number; // Flat amount or Rate per SqFt
-  amount: number; // Calculated Final Amount
+  rate: number; 
+  amount: number; 
 }
 
 export interface PaymentDetails {
@@ -100,17 +101,14 @@ export interface Bill {
   residentId: string;
   residentName: string;
   unitNumber: string;
-  
   items: BillItem[];
   interest: number; 
-  gstAmount?: number; // Added: GST calculation for the bill
-  totalAmount: number; // Sum of items + interest + GST
-  
+  gstAmount?: number; 
+  totalAmount: number; 
   dueDate: string;
   status: PaymentStatus;
   generatedDate: string;
   billMonth?: string;
-  
   paymentDetails?: PaymentDetails;
   customNotes?: string[]; 
 }
@@ -165,4 +163,4 @@ export interface MeetingMinutes {
     actionItems: string;
 }
 
-export type ViewState = 'DASHBOARD' | 'SOCIETIES' | 'RESIDENTS' | 'BILLING' | 'RECEIPTS' | 'INCOME' | 'EXPENSES' | 'VOUCHERS' | 'STATEMENTS' | 'BANK_RECONCILIATION' | 'STATUTORY_REGISTERS' | 'REPORTS' | 'MINUTES' | 'NOTICES' | 'TEMPLATES' | 'AI_INSIGHTS' | 'KNOWLEDGE_BASE';
+export type ViewState = 'DASHBOARD' | 'SOCIETIES' | 'RESIDENTS' | 'BILLING' | 'RECEIPTS' | 'INCOME' | 'EXPENSES' | 'VOUCHERS' | 'STATEMENTS' | 'BANK_RECONCILIATION' | 'STATUTORY_REGISTERS' | 'REPORTS' | 'MINUTES' | 'NOTICES' | 'TEMPLATES' | 'AI_INSIGHTS' | 'KNOWLEDGE_BASE' | 'SECURITY';
