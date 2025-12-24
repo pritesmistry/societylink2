@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Bill, Expense, Resident, Society, PaymentStatus, Income } from '../types';
-import { Download, TrendingUp, Scale, AlertCircle, FileBarChart, Coins, ArrowRightLeft, Calendar, Sparkles, Loader2, Wand2, ShieldCheck, Check, ClipboardList, Info } from 'lucide-react';
+import { Download, TrendingUp, Scale, AlertCircle, FileBarChart, Coins, ArrowRightLeft, Calendar, Sparkles, Loader2, Wand2, ShieldCheck, Check, ClipboardList, Info, ListChecks, Receipt } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 import { generateReportCommentary } from '../services/geminiService';
 
@@ -42,9 +42,17 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
     const periodExpenses = expenses.filter(e => isInPeriod(e.date));
     const periodIncomes = incomes.filter(i => isInPeriod(i.date));
 
+    // Revenue Accounting (Accrual)
     const totalBilled = periodBills.reduce((sum, b) => sum + b.totalAmount, 0);
     const totalOtherIncome = periodIncomes.reduce((sum, i) => sum + i.amount, 0);
     const totalIncome = totalBilled + totalOtherIncome;
+
+    // Cash Accounting (Receipts & Payments)
+    const maintenanceReceived = bills
+      .filter(b => b.status === PaymentStatus.PAID && b.paymentDetails && b.paymentDetails.date >= startStr && b.paymentDetails.date <= endStr)
+      .reduce((s, b) => s + b.totalAmount, 0);
+    const actualOtherIncomeReceived = periodIncomes.reduce((sum, i) => sum + i.amount, 0);
+    const actualPaymentsMade = periodExpenses.reduce((sum, e) => sum + e.amount, 0);
 
     const pendingBillsAmount = bills
       .filter(b => b.generatedDate <= endStr && (b.status === PaymentStatus.PENDING || b.status === PaymentStatus.OVERDUE))
@@ -55,10 +63,18 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
 
     const totalExpenses = periodExpenses.reduce((sum, e) => sum + e.amount, 0);
 
+    // Calculate Balance at point in time
     const allIncomesTillDate = incomes.filter(i => i.date <= endStr).reduce((s, i) => s + i.amount, 0);
     const allCollectionsTillDate = bills.filter(b => b.status === PaymentStatus.PAID && b.paymentDetails && b.paymentDetails.date <= endStr).reduce((s, b) => s + b.totalAmount, 0);
     const allExpensesTillDate = expenses.filter(e => e.date <= endStr).reduce((s, e) => s + e.amount, 0);
     
+    // Opening balance logic (Rough estimation for mock)
+    const startOfFY = `${fyEndYear - 1}-04-01`;
+    const allIncBefore = incomes.filter(i => i.date < startOfFY).reduce((s, i) => s + i.amount, 0);
+    const allCollBefore = bills.filter(b => b.status === PaymentStatus.PAID && b.paymentDetails && b.paymentDetails.date < startOfFY).reduce((s, b) => s + b.totalAmount, 0);
+    const allExpBefore = expenses.filter(e => e.date < startOfFY).reduce((s, e) => s + e.amount, 0);
+    const openingCash = (allIncBefore + allCollBefore) - allExpBefore;
+
     const cashInHand = (allCollectionsTillDate + allIncomesTillDate) - allExpensesTillDate;
     const netSurplus = totalIncome - totalExpenses;
     const totalAssets = cashInHand + totalReceivables;
@@ -73,6 +89,10 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       totalOtherIncome,
       totalIncome,
       totalExpenses,
+      maintenanceReceived,
+      actualOtherIncomeReceived,
+      actualPaymentsMade,
+      openingCash,
       cashInHand,
       totalReceivables,
       netSurplus,
@@ -87,7 +107,6 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
       previous: calculateFinancialsForPeriod(selectedFYEnd - 1)
   }), [bills, expenses, residents, incomes, selectedFYEnd]);
 
-  // Merge categories for comparative analysis
   const mergedExpenseCategories = useMemo(() => {
       const cats = new Set<string>();
       Object.keys(financials.current.expensesByCategory).forEach(c => cats.add(c));
@@ -105,7 +124,7 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
               previousYear: financials.previous,
               societyName: activeSociety.name
           });
-          setAiAuditNote(commentary);
+          setAiAuditNote( commentary);
       } catch (err) {
           setAiAuditNote("Audit AI failed to analyze this period.");
       } finally {
@@ -152,27 +171,39 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
         </div>
       </div>
 
-      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
           <div className="flex gap-2">
             <button 
                 onClick={() => setActiveTab('BALANCE_SHEET')}
-                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${activeTab === 'BALANCE_SHEET' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'BALANCE_SHEET' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
             >
-                <FileBarChart size={18} /> Comparative Statements
+                <FileBarChart size={18} /> Balance Sheet
+            </button>
+            <button 
+                onClick={() => setActiveTab('TRIAL_BALANCE')}
+                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'TRIAL_BALANCE' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+            >
+                <ListChecks size={18} /> Trial Balance
+            </button>
+            <button 
+                onClick={() => setActiveTab('RECEIPTS_AND_PAYMENTS')}
+                className={`px-4 py-2 text-sm font-bold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'RECEIPTS_AND_PAYMENTS' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'}`}
+            >
+                <Receipt size={18} /> Receipt & Payment
             </button>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex gap-3 ml-4">
               <button 
                 onClick={handleAiAudit}
                 disabled={isAiLoading}
-                className="bg-indigo-50 text-indigo-700 px-5 py-2 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-indigo-100 transition-all border border-indigo-200"
+                className="bg-indigo-50 text-indigo-700 px-5 py-2 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-indigo-100 transition-all border border-indigo-200 whitespace-nowrap"
               >
                 {isAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 {isAiLoading ? 'Analyzing Trends...' : 'AI Auditor Analysis'}
               </button>
-              <button onClick={downloadReport} className="bg-slate-900 text-white px-5 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-800 transition-all">
-                <Download size={16} /> Export Landscape PDF
+              <button onClick={downloadReport} className="bg-slate-900 text-white px-5 py-2 rounded-xl font-bold text-sm flex items-center gap-2 hover:bg-slate-800 transition-all whitespace-nowrap">
+                <Download size={16} /> Export PDF
               </button>
           </div>
       </div>
@@ -193,7 +224,6 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                   <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 text-sm leading-relaxed font-medium max-h-[300px] overflow-y-auto custom-scrollbar whitespace-pre-wrap">
                       {aiAuditNote}
                   </div>
-                  <p className="text-[10px] mt-4 opacity-70 uppercase tracking-widest font-black italic">Generated by Gemini 3 Pro Auditor Engine • YOY Comparative Draft</p>
               </div>
           </div>
       )}
@@ -204,7 +234,9 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
             <h1 className="text-3xl font-black uppercase tracking-tight text-slate-900">{activeSociety.name}</h1>
             <p className="text-slate-600 mt-2 font-medium">{activeSociety.address}</p>
             <div className="mt-6 inline-block bg-slate-900 text-white px-8 py-2 rounded-full text-lg font-black uppercase tracking-widest">
-                Comparative Statement of Accounts
+                {activeTab === 'BALANCE_SHEET' ? 'Comparative Balance Sheet' : 
+                 activeTab === 'TRIAL_BALANCE' ? 'Trial Balance Statement' : 
+                 'Receipt & Payment Account'}
             </div>
             <p className="text-sm text-slate-800 font-bold mt-4 uppercase">
                 Reporting Period: FY {selectedFYEnd - 1}-{selectedFYEnd} | (Previous: FY {selectedFYEnd - 2}-{selectedFYEnd - 1})
@@ -213,22 +245,21 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
 
           {activeTab === 'BALANCE_SHEET' && (
               <div className="space-y-16">
-                {/* 1. INCOME & EXPENDITURE */}
                 <div className="break-inside-avoid">
-                    <h3 className="text-xl font-black bg-slate-100 p-3 border-l-8 border-indigo-600 mb-6 uppercase tracking-tighter">I. Comparative Income & Expenditure Statement</h3>
+                    <h3 className="text-xl font-black bg-slate-100 p-3 border-l-8 border-indigo-600 mb-6 uppercase tracking-tighter">I. Comparative Income & Expenditure</h3>
                     <table className="w-full text-[11px] border-collapse border border-slate-800">
                         <thead className="bg-slate-900 text-white">
                             <tr>
-                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Expenditure (Payments)</th>
-                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Income (Receipts)</th>
+                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Expenditure</th>
+                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Income</th>
                             </tr>
                             <tr className="bg-slate-800 text-[10px]">
-                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
+                                <th className="p-2 text-right border border-slate-700 w-24">Prev FY</th>
                                 <th className="p-2 text-left border border-slate-700">Particulars</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
+                                <th className="p-2 text-right border border-slate-700 w-24">Curr FY</th>
+                                <th className="p-2 text-right border border-slate-700 w-24">Prev FY</th>
                                 <th className="p-2 text-left border border-slate-700">Particulars</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
+                                <th className="p-2 text-right border border-slate-700 w-24">Curr FY</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -238,23 +269,15 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                                         <tbody>
                                             {mergedExpenseCategories.map((cat, i) => (
                                                 <tr key={i} className="border-b border-slate-100">
-                                                    <td className="p-2 text-right text-slate-400 w-24 border-r border-slate-100 italic">
-                                                        {formatMoney(financials.previous.expensesByCategory[cat])}
-                                                    </td>
+                                                    <td className="p-2 text-right text-slate-400 w-24 border-r border-slate-100 italic">{formatMoney(financials.previous.expensesByCategory[cat])}</td>
                                                     <td className="p-2 text-slate-700">{cat}</td>
-                                                    <td className="p-2 text-right font-bold w-24 border-l border-slate-100">
-                                                        {formatMoney(financials.current.expensesByCategory[cat])}
-                                                    </td>
+                                                    <td className="p-2 text-right font-bold w-24 border-l border-slate-100">{formatMoney(financials.current.expensesByCategory[cat])}</td>
                                                 </tr>
                                             ))}
                                             <tr className="bg-indigo-50 font-black">
-                                                <td className="p-2 text-right text-green-500/50 w-24 border-r border-slate-200">
-                                                    {financials.previous.netSurplus > 0 ? formatMoney(financials.previous.netSurplus) : '0.00'}
-                                                </td>
-                                                <td className="p-2">Surplus (Net Profit)</td>
-                                                <td className="p-2 text-right text-green-700 w-24 border-l border-slate-200">
-                                                    {financials.current.netSurplus > 0 ? formatMoney(financials.current.netSurplus) : '0.00'}
-                                                </td>
+                                                <td className="p-2 text-right text-green-500/50 w-24 border-r border-slate-200">{financials.previous.netSurplus > 0 ? formatMoney(financials.previous.netSurplus) : '0.00'}</td>
+                                                <td className="p-2">Surplus (to Balance Sheet)</td>
+                                                <td className="p-2 text-right text-green-700 w-24 border-l border-slate-200">{financials.current.netSurplus > 0 ? formatMoney(financials.current.netSurplus) : '0.00'}</td>
                                             </tr>
                                         </tbody>
                                     </table>
@@ -264,109 +287,180 @@ const Reports: React.FC<ReportsProps> = ({ bills, expenses, residents, activeSoc
                                         <tbody>
                                             <tr className="border-b border-slate-100">
                                                 <td className="p-2 text-right text-slate-400 w-24 border-r border-slate-100 italic">{formatMoney(financials.previous.totalBilled)}</td>
-                                                <td className="p-2 text-slate-700">Maintenance Collections</td>
+                                                <td className="p-2 text-slate-700">Maintenance Charges</td>
                                                 <td className="p-2 text-right font-bold w-24 border-l border-slate-100">{formatMoney(financials.current.totalBilled)}</td>
                                             </tr>
                                             <tr className="border-b border-slate-100">
                                                 <td className="p-2 text-right text-slate-400 w-24 border-r border-slate-100 italic">{formatMoney(financials.previous.totalOtherIncome)}</td>
-                                                <td className="p-2 text-slate-700">Other Society Income</td>
+                                                <td className="p-2 text-slate-700">Other Non-Maint Income</td>
                                                 <td className="p-2 text-right font-bold w-24 border-l border-slate-100">{formatMoney(financials.current.totalOtherIncome)}</td>
                                             </tr>
-                                            {financials.current.netSurplus < 0 && (
-                                                <tr className="bg-red-50 font-black">
-                                                    <td className="p-2 text-right text-red-500/50 w-24 border-r border-slate-200">{formatMoney(Math.abs(financials.previous.netSurplus))}</td>
-                                                    <td className="p-2">Deficit (Net Loss)</td>
-                                                    <td className="p-2 text-right text-red-700 w-24 border-l border-slate-200">{formatMoney(Math.abs(financials.current.netSurplus))}</td>
-                                                </tr>
-                                            )}
                                         </tbody>
                                     </table>
                                 </td>
                             </tr>
                         </tbody>
-                        <tfoot className="bg-slate-100 font-black text-[12px]">
-                            <tr>
-                                <td className="p-2 text-right text-slate-500 w-24 border-r border-slate-300">{formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}</td>
-                                <td className="p-2 text-left uppercase">Total Expenditure</td>
-                                <td className="p-2 text-right border-l border-slate-300 w-24">{formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}</td>
-                                <td className="p-2 text-right text-slate-500 w-24 border-r border-slate-300">{formatMoney(Math.max(financials.previous.totalIncome, financials.previous.totalExpenses))}</td>
-                                <td className="p-2 text-left uppercase">Total Income</td>
-                                <td className="p-2 text-right border-l border-slate-300 w-24">{formatMoney(Math.max(financials.current.totalIncome, financials.current.totalExpenses))}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                {/* 2. BALANCE SHEET */}
-                <div className="break-inside-avoid">
-                    <h3 className="text-xl font-black bg-slate-100 p-3 border-l-8 border-indigo-600 mb-6 uppercase tracking-tighter">II. Comparative Balance Sheet</h3>
-                    <table className="w-full text-[11px] border-collapse border border-slate-800">
-                        <thead className="bg-slate-900 text-white">
-                            <tr>
-                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Capital & Liabilities</th>
-                                <th className="p-2 text-center border border-slate-800" colSpan={3}>Property & Assets</th>
-                            </tr>
-                            <tr className="bg-slate-800 text-[10px]">
-                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
-                                <th className="p-2 text-left border border-slate-700">Particulars</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Previous FY</th>
-                                <th className="p-2 text-left border border-slate-700">Particulars</th>
-                                <th className="p-2 text-right border border-slate-700 w-24">Current FY</th>
-                            </tr>
-                        </thead>
-                        <tbody className="align-top">
-                            <tr className="h-40">
-                                <td className="p-4 border border-slate-300 text-right text-slate-400 italic bg-slate-50/50 w-24 align-middle">
-                                    {formatMoney(financials.previous.totalOpeningBalances + financials.previous.netSurplus)}
-                                </td>
-                                <td className="p-4 border border-slate-300">
-                                    <p className="font-bold text-indigo-700 mb-2 uppercase text-[10px]">Reserves & Funds</p>
-                                    <div className="flex justify-between pl-2 text-[10px] mb-1"><span>Opening Balance / Corpus</span></div>
-                                    <div className="flex justify-between pl-2 text-[10px]"><span>Accumulated Surplus</span></div>
-                                </td>
-                                <td className="p-4 border border-slate-300 text-right font-black bg-slate-50 w-24 align-middle">
-                                    {formatMoney(financials.current.totalOpeningBalances + financials.current.netSurplus)}
-                                </td>
-                                <td className="p-4 border border-slate-300 text-right text-slate-400 italic bg-slate-50/50 w-24">
-                                    <p className="mb-1">{formatMoney(financials.previous.cashInHand)}</p>
-                                    <p>{formatMoney(financials.previous.totalReceivables)}</p>
-                                </td>
-                                <td className="p-4 border border-slate-300">
-                                    <p className="font-bold text-indigo-700 mb-2 uppercase text-[10px]">Current Assets</p>
-                                    <div className="flex justify-between pl-2 text-[10px] mb-1"><span>Cash & Bank Balances</span></div>
-                                    <div className="flex justify-between pl-2 text-[10px]"><span>Sundry Debtors (Members)</span></div>
-                                </td>
-                                <td className="p-4 border border-slate-300 text-right font-black bg-slate-50 w-24">
-                                    <p className="mb-1">{formatMoney(financials.current.cashInHand)}</p>
-                                    <p>{formatMoney(financials.current.totalReceivables)}</p>
-                                </td>
-                            </tr>
-                        </tbody>
-                        <tfoot className="bg-slate-900 text-white font-black text-[12px]">
-                            <tr>
-                                <td className="p-2 text-right border-r border-slate-700 text-slate-400 italic w-24">{formatMoney(financials.previous.totalAssets)}</td>
-                                <td className="p-2 text-left">TOTAL LIABILITIES</td>
-                                <td className="p-2 text-right border-l border-slate-700 w-24">{formatMoney(financials.current.totalAssets)}</td>
-                                <td className="p-2 text-right border-r border-slate-700 text-slate-400 italic w-24">{formatMoney(financials.previous.totalAssets)}</td>
-                                <td className="p-2 text-left">TOTAL ASSETS</td>
-                                <td className="p-2 text-right border-l border-slate-700 w-24">{formatMoney(financials.current.totalAssets)}</td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
               </div>
           )}
 
-          {aiAuditNote && (
-              <div className="mt-12 pt-8 border-t-2 border-dashed border-slate-300 break-inside-avoid">
-                  <div className="flex items-center gap-2 mb-4">
-                      <ShieldCheck className="text-indigo-600" size={24} />
-                      <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Annexure: Auditor's Comparative Analysis (AI)</h3>
-                  </div>
-                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-[10pt] leading-relaxed italic text-slate-700 whitespace-pre-wrap font-serif">
-                      {aiAuditNote}
-                  </div>
+          {activeTab === 'TRIAL_BALANCE' && (
+              <div className="space-y-8">
+                  <h3 className="text-xl font-black bg-slate-100 p-3 border-l-8 border-indigo-600 mb-6 uppercase tracking-tighter">Comparative Trial Balance</h3>
+                  <table className="w-full text-[11px] border-collapse border border-slate-800">
+                      <thead className="bg-slate-900 text-white">
+                          <tr>
+                              <th className="p-3 text-left border border-slate-800" rowSpan={2}>Heads of Accounts</th>
+                              <th className="p-2 text-center border border-slate-800" colSpan={2}>Previous FY ({selectedFYEnd-2}-{selectedFYEnd-1})</th>
+                              <th className="p-2 text-center border border-slate-800" colSpan={2}>Current FY ({selectedFYEnd-1}-{selectedFYEnd})</th>
+                          </tr>
+                          <tr className="bg-slate-800 text-[10px]">
+                              <th className="p-2 text-right border border-slate-700 w-28">Debit (₹)</th>
+                              <th className="p-2 text-right border border-slate-700 w-28">Credit (₹)</th>
+                              <th className="p-2 text-right border border-slate-700 w-28">Debit (₹)</th>
+                              <th className="p-2 text-right border border-slate-700 w-28">Credit (₹)</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {/* Assets */}
+                          <tr className="bg-slate-50 font-black"><td className="p-2" colSpan={5}>PROPERTY & ASSETS</td></tr>
+                          <tr>
+                              <td className="p-2 pl-6">Cash & Bank Balances</td>
+                              <td className="p-2 text-right">{formatMoney(financials.previous.cashInHand)}</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right font-bold">{formatMoney(financials.current.cashInHand)}</td>
+                              <td className="p-2 text-right">-</td>
+                          </tr>
+                          <tr>
+                              <td className="p-2 pl-6">Sundry Debtors (Members)</td>
+                              <td className="p-2 text-right">{formatMoney(financials.previous.totalReceivables)}</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right font-bold">{formatMoney(financials.current.totalReceivables)}</td>
+                              <td className="p-2 text-right">-</td>
+                          </tr>
+                          
+                          {/* Liabilities */}
+                          <tr className="bg-slate-50 font-black"><td className="p-2" colSpan={5}>CAPITAL & LIABILITIES</td></tr>
+                          <tr>
+                              <td className="p-2 pl-6">General Fund / Corpus</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right">{formatMoney(financials.previous.totalOpeningBalances)}</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right font-bold">{formatMoney(financials.current.totalOpeningBalances)}</td>
+                          </tr>
+                          <tr>
+                              <td className="p-2 pl-6">Income & Expenditure (Surplus)</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right">{formatMoney(financials.previous.netSurplus)}</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right font-bold">{formatMoney(financials.current.netSurplus)}</td>
+                          </tr>
+
+                          {/* Income & Expenses */}
+                          <tr className="bg-slate-50 font-black"><td className="p-2" colSpan={5}>REVENUE ACCOUNTS (P&L)</td></tr>
+                          {mergedExpenseCategories.map(cat => (
+                              <tr key={cat}>
+                                  <td className="p-2 pl-6">{cat} Account</td>
+                                  <td className="p-2 text-right">{formatMoney(financials.previous.expensesByCategory[cat])}</td>
+                                  <td className="p-2 text-right">-</td>
+                                  <td className="p-2 text-right font-bold">{formatMoney(financials.current.expensesByCategory[cat])}</td>
+                                  <td className="p-2 text-right">-</td>
+                              </tr>
+                          ))}
+                          <tr>
+                              <td className="p-2 pl-6">Maintenance Income</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right">{formatMoney(financials.previous.totalBilled)}</td>
+                              <td className="p-2 text-right">-</td>
+                              <td className="p-2 text-right font-bold">{formatMoney(financials.current.totalBilled)}</td>
+                          </tr>
+                      </tbody>
+                      <tfoot className="bg-slate-900 text-white font-black">
+                          <tr>
+                              <td className="p-2 uppercase">Total Trial Balance</td>
+                              <td className="p-2 text-right">{formatMoney(financials.previous.cashInHand + financials.previous.totalReceivables + financials.previous.totalExpenses)}</td>
+                              <td className="p-2 text-right">{formatMoney(financials.previous.totalOpeningBalances + financials.previous.netSurplus + financials.previous.totalBilled)}</td>
+                              <td className="p-2 text-right">{formatMoney(financials.current.cashInHand + financials.current.totalReceivables + financials.current.totalExpenses)}</td>
+                              <td className="p-2 text-right">{formatMoney(financials.current.totalOpeningBalances + financials.current.netSurplus + financials.current.totalBilled)}</td>
+                          </tr>
+                      </tfoot>
+                  </table>
+              </div>
+          )}
+
+          {activeTab === 'RECEIPTS_AND_PAYMENTS' && (
+              <div className="space-y-8">
+                  <h3 className="text-xl font-black bg-slate-100 p-3 border-l-8 border-indigo-600 mb-6 uppercase tracking-tighter">Receipt & Payment Account (Cash Flow)</h3>
+                  <table className="w-full text-[11px] border-collapse border border-slate-800">
+                      <thead className="bg-slate-900 text-white">
+                          <tr>
+                              <th className="p-2 text-center border border-slate-800" colSpan={3}>Receipts</th>
+                              <th className="p-2 text-center border border-slate-800" colSpan={3}>Payments</th>
+                          </tr>
+                          <tr className="bg-slate-800 text-[10px]">
+                              <th className="p-2 text-right border border-slate-700 w-24">Prev FY</th>
+                              <th className="p-2 text-left border border-slate-700">Particulars</th>
+                              <th className="p-2 text-right border border-slate-700 w-24">Curr FY</th>
+                              <th className="p-2 text-right border border-slate-700 w-24">Prev FY</th>
+                              <th className="p-2 text-left border border-slate-700">Particulars</th>
+                              <th className="p-2 text-right border border-slate-700 w-24">Curr FY</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <tr className="align-top">
+                              <td className="p-0 border border-slate-300" colSpan={3}>
+                                  <table className="w-full">
+                                      <tbody>
+                                          <tr className="bg-slate-50 italic">
+                                              <td className="p-2 text-right w-24">{formatMoney(financials.previous.openingCash)}</td>
+                                              <td className="p-2">Opening Cash & Bank Balance</td>
+                                              <td className="p-2 text-right font-bold w-24">{formatMoney(financials.current.openingCash)}</td>
+                                          </tr>
+                                          <tr className="border-b">
+                                              <td className="p-2 text-right w-24">{formatMoney(financials.previous.maintenanceReceived)}</td>
+                                              <td className="p-2">Member Maintenance Collected</td>
+                                              <td className="p-2 text-right font-bold w-24">{formatMoney(financials.current.maintenanceReceived)}</td>
+                                          </tr>
+                                          <tr className="border-b">
+                                              <td className="p-2 text-right w-24">{formatMoney(financials.previous.actualOtherIncomeReceived)}</td>
+                                              <td className="p-2">Other Receipts</td>
+                                              <td className="p-2 text-right font-bold w-24">{formatMoney(financials.current.actualOtherIncomeReceived)}</td>
+                                          </tr>
+                                      </tbody>
+                                  </table>
+                              </td>
+                              <td className="p-0 border border-slate-300" colSpan={3}>
+                                  <table className="w-full">
+                                      <tbody>
+                                          {mergedExpenseCategories.map(cat => (
+                                              <tr key={cat} className="border-b">
+                                                  <td className="p-2 text-right w-24">{formatMoney(financials.previous.expensesByCategory[cat])}</td>
+                                                  <td className="p-2">Paid for {cat}</td>
+                                                  <td className="p-2 text-right font-bold w-24">{formatMoney(financials.current.expensesByCategory[cat])}</td>
+                                              </tr>
+                                          ))}
+                                          <tr className="bg-indigo-50 font-black">
+                                              <td className="p-2 text-right w-24">{formatMoney(financials.previous.cashInHand)}</td>
+                                              <td className="p-2">Closing Cash & Bank Balance</td>
+                                              <td className="p-2 text-right font-bold w-24">{formatMoney(financials.current.cashInHand)}</td>
+                                          </tr>
+                                      </tbody>
+                                  </table>
+                              </td>
+                          </tr>
+                      </tbody>
+                      <tfoot className="bg-slate-100 font-black">
+                          <tr>
+                              <td className="p-2 text-right w-24" colSpan={1}>{formatMoney(financials.previous.openingCash + financials.previous.maintenanceReceived + financials.previous.actualOtherIncomeReceived)}</td>
+                              <td className="p-2 text-left uppercase" colSpan={1}>Total Receipts</td>
+                              <td className="p-2 text-right w-24 border-l" colSpan={1}>{formatMoney(financials.current.openingCash + financials.current.maintenanceReceived + financials.current.actualOtherIncomeReceived)}</td>
+                              <td className="p-2 text-right w-24" colSpan={1}>{formatMoney(financials.previous.actualPaymentsMade + financials.previous.cashInHand)}</td>
+                              <td className="p-2 text-left uppercase" colSpan={1}>Total Payments</td>
+                              <td className="p-2 text-right w-24 border-l" colSpan={1}>{formatMoney(financials.current.actualPaymentsMade + financials.current.cashInHand)}</td>
+                          </tr>
+                      </tfoot>
+                  </table>
               </div>
           )}
 
