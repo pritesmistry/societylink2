@@ -126,7 +126,15 @@ const App: React.FC = () => {
 
   const handleDeleteSociety = (id: string) => {
     if (societies.length <= 1) return;
-    if (window.confirm("Delete this society? This will hide all associated data.")) {
+    
+    // Safety check for society deletion
+    const hasData = residents.some(r => r.societyId === id) || bills.some(b => b.societyId === id) || expenses.some(e => e.societyId === id);
+    if (hasData) {
+        alert("SECURITY ALERT: This society has active data (Members, Bills, or Vouchers). Delete all associated records before removing the society registry.");
+        return;
+    }
+
+    if (window.confirm("Delete this society registry?")) {
        const newSocieties = societies.filter(s => s.id !== id);
        setSocieties(newSocieties);
        if (id === activeSocietyId) setActiveSocietyId(newSocieties[0].id);
@@ -162,8 +170,18 @@ const App: React.FC = () => {
   const handleAddResident = (resident: Resident) => setResidents(prev => [...prev, resident]);
   const handleBulkAddResidents = (newResidents: Resident[]) => setResidents(prev => [...prev, ...newResidents]);
   const handleUpdateResident = (updatedResident: Resident) => setResidents(prev => prev.map(r => r.id === updatedResident.id ? updatedResident : r));
+  
   const handleDeleteResident = (id: string) => {
-    if(window.confirm("Remove this resident?")) setResidents(prev => prev.filter(r => r.id !== id));
+    // SECURITY GUARD: Check for Personal Ledger transactions
+    const hasTransactions = bills.some(b => b.residentId === id);
+    if (hasTransactions) {
+        alert("CRITICAL SECURITY ACTION DENIED:\n\nThis member has active transactions in their Personal Ledger (Bills or Receipts).\n\nTo delete this member, you must first delete ALL their maintenance bills and payment receipts.");
+        return;
+    }
+
+    if(window.confirm("Are you sure you want to remove this resident? This action cannot be undone.")) {
+        setResidents(prev => prev.filter(r => r.id !== id));
+    }
   };
 
   const handleGenerateBill = (bill: Bill) => setBills(prev => [bill, ...prev]);
@@ -185,6 +203,19 @@ const App: React.FC = () => {
   };
 
   const handleAddAccountHead = (head: AccountHead) => setAccountHeads(prev => [...prev, head]);
+  
+  const handleDeleteAccountHead = (id: string) => {
+      // SECURITY GUARD: Check for General Ledger transactions
+      const hasTransactions = expenses.some(e => e.accountHeadId === id);
+      if (hasTransactions) {
+          alert("CRITICAL SECURITY ACTION DENIED:\n\nThis Account Head is being used in the General Ledger (Vouchers).\n\nTo delete this ledger, you must first delete or re-assign all vouchers linked to this head.");
+          return;
+      }
+
+      if (window.confirm("Remove this account head from society master?")) {
+          setAccountHeads(prev => prev.filter(h => h.id !== id));
+      }
+  };
 
   // Permission Guard
   const hasAccess = (view: ViewState) => {
@@ -298,6 +329,7 @@ const App: React.FC = () => {
                 balances={financialBalances}
                 accountHeads={activeAccountHeads}
                 onAddAccountHead={handleAddAccountHead}
+                onDeleteAccountHead={handleDeleteAccountHead}
             />
         );
       case 'STATEMENTS':

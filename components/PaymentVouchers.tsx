@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Expense, Society, AccountHead, MainAccountGroup } from '../types';
-import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen, ArrowUpRight, ArrowDownLeft, Upload, Tags, Layers, FolderPlus, X, Check, Search } from 'lucide-react';
+// Added Shield to the imports to resolve the 'Cannot find name Shield' error.
+import { Plus, Download, Printer, Banknote, Building, FileText, BookOpen, ArrowUpRight, ArrowDownLeft, Upload, Tags, Layers, FolderPlus, X, Check, Search, Trash2, Settings2, Shield } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 
 interface PaymentVouchersProps {
@@ -11,6 +12,7 @@ interface PaymentVouchersProps {
   balances?: { cash: number; bank: number };
   accountHeads: AccountHead[];
   onAddAccountHead: (head: AccountHead) => void;
+  onDeleteAccountHead: (id: string) => void;
 }
 
 const MAIN_GROUPS: MainAccountGroup[] = ['Assets', 'Liabilities', 'Expenses', 'Income'];
@@ -21,11 +23,12 @@ declare global {
   }
 }
 
-const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSociety, onAddExpense, balances, accountHeads, onAddAccountHead }) => {
+const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSociety, onAddExpense, balances, accountHeads, onAddAccountHead, onDeleteAccountHead }) => {
   const [activeTab, setActiveTab] = useState<'CASH' | 'BANK' | 'JOURNAL' | 'DEBIT_NOTE' | 'CREDIT_NOTE'>('CASH');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isAddHeadOpen, setIsAddHeadOpen] = useState(false);
+  const [isManageHeadsOpen, setIsManageHeadsOpen] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Expense | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -147,6 +150,15 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
            <h2 className="text-xl font-semibold text-slate-800">Accounting Vouchers</h2>
            <p className="text-sm text-slate-500 mt-1">Multi-group structured entry for professional auditing.</p>
         </div>
+        <div className="flex gap-2">
+            <button 
+                onClick={() => setIsManageHeadsOpen(true)}
+                className="bg-white text-slate-600 border border-slate-200 px-4 py-2.5 rounded-xl flex items-center gap-2 hover:bg-slate-50 transition-all font-bold text-sm shadow-sm"
+            >
+                <Settings2 size={18} /> Manage Heads
+            </button>
+            <button onClick={handleOpenModal} className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"><Plus size={18} /> New Voucher Entry</button>
+        </div>
       </div>
       
       <div className="flex gap-2 border-b border-slate-200 pb-1 flex-wrap">
@@ -155,11 +167,6 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
           <button onClick={() => setActiveTab('JOURNAL')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'JOURNAL' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><BookOpen size={16} /> Journal</button>
           <button onClick={() => setActiveTab('DEBIT_NOTE')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'DEBIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><ArrowUpRight size={16} /> Debit Note</button>
           <button onClick={() => setActiveTab('CREDIT_NOTE')} className={`px-4 py-2 text-sm font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === 'CREDIT_NOTE' ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'}`}><ArrowDownLeft size={16} /> Credit Note</button>
-      </div>
-
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
-           <div className="text-sm text-slate-500">Showing {filteredExpenses.length} records in {activeTab} register</div>
-           <button onClick={handleOpenModal} className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95"><Plus size={18} /> New Voucher Entry</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -192,6 +199,56 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
                </div>
           )}
       </div>
+
+      {/* MANAGE ACCOUNT HEADS MODAL */}
+      {isManageHeadsOpen && (
+          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[130] backdrop-blur-md p-4">
+              <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                  <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                          <Settings2 size={24} />
+                          <h3 className="text-xl font-black uppercase tracking-tighter">Master Ledger Management</h3>
+                      </div>
+                      <button onClick={() => setIsManageHeadsOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X /></button>
+                  </div>
+                  <div className="p-8 h-[60vh] overflow-y-auto custom-scrollbar">
+                      <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-6 flex gap-3">
+                          <Shield size={20} className="text-amber-600 shrink-0" />
+                          <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                              <strong>Referential Integrity Guard Active:</strong> You cannot delete an account head if it has been used in any General Ledger transaction (Vouchers). To delete a ledger, first remove all its associated records.
+                          </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {accountHeads.map(head => {
+                              const usageCount = expenses.filter(e => e.accountHeadId === head.id).length;
+                              return (
+                                  <div key={head.id} className="flex justify-between items-center p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:border-indigo-300 transition-all group">
+                                      <div>
+                                          <div className="flex items-center gap-2">
+                                              <span className="font-black text-slate-800">{head.name}</span>
+                                              <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase">{head.mainGroup}</span>
+                                          </div>
+                                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">{head.subGroup} • {usageCount} Transactions</p>
+                                      </div>
+                                      <button 
+                                        onClick={() => onDeleteAccountHead(head.id)}
+                                        className={`p-2 rounded-xl transition-all ${usageCount > 0 ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:bg-red-50 hover:text-red-600'}`}
+                                        title={usageCount > 0 ? "Ledger has transactions - Cannot Delete" : "Delete Head"}
+                                      >
+                                          <Trash2 size={18} />
+                                      </button>
+                                  </div>
+                              )
+                          })}
+                      </div>
+                  </div>
+                  <div className="p-6 border-t bg-slate-50 flex justify-end">
+                      <button onClick={() => setIsAddHeadOpen(true)} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-indigo-700 shadow-xl">+ Add New Master Head</button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* VOUCHER CREATION MODAL */}
       {isModalOpen && (
@@ -277,7 +334,7 @@ const PaymentVouchers: React.FC<PaymentVouchersProps> = ({ expenses, activeSocie
 
       {/* ACCOUNT HEAD CREATION MODAL (POPUP WITHIN MODAL) */}
       {isAddHeadOpen && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] backdrop-blur-sm p-4">
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[140] backdrop-blur-sm p-4">
               <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
                   <div className="flex justify-between items-center mb-6">
                       <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><FolderPlus className="text-indigo-600" /> New Account Head</h3>
