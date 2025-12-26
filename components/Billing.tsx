@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical, Sparkles, Wand2, MessageSquare, Send, Search } from 'lucide-react';
+import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical, Sparkles, Wand2, MessageSquare, Send, Search, Printer, ListOrdered } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 import { generateArrearsRecoveryStrategy } from '../services/geminiService';
 
@@ -32,8 +32,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isGatewayOpen, setIsGatewayOpen] = useState(false);
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isLedgerPrintOpen, setIsLedgerPrintOpen] = useState(false);
 
   // AI State
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
@@ -42,6 +41,13 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
   const [selectedBillForAi, setSelectedBillForAi] = useState<Bill | null>(null);
 
   const [previewBill, setPreviewBill] = useState<Bill | null>(null);
+
+  // Ledger Print State
+  const [selectedResidentForLedger, setSelectedResidentForLedger] = useState<Resident | null>(null);
+  const [ledgerPeriod, setLedgerPeriod] = useState({
+      from: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
+      to: new Date().toISOString().split('T')[0]
+  });
 
   // Generation Modal State
   const [generationMode, setGenerationMode] = useState<'INDIVIDUAL' | 'ALL'>('INDIVIDUAL');
@@ -114,18 +120,11 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
       setIsPreviewOpen(true);
   };
 
-  const handleArrearsAi = async (bill: Bill) => {
-      setSelectedBillForAi(bill);
-      setAiResult(null);
-      setIsAiPanelOpen(true);
-      setAiLoading(true);
-      try {
-          const result = await generateArrearsRecoveryStrategy(bill, activeSociety.name);
-          setAiResult(result);
-      } catch (err) {
-          setAiResult("Failed to generate AI strategy.");
-      } finally {
-          setAiLoading(false);
+  const handleOpenLedgerPrint = (residentId: string) => {
+      const res = residents.find(r => r.id === residentId);
+      if (res) {
+          setSelectedResidentForLedger(res);
+          setIsLedgerPrintOpen(true);
       }
   };
 
@@ -140,6 +139,14 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } 
     };
     window.html2pdf().set(opt).from(element).save();
+  };
+
+  const handleGenerateLedgerPDF = () => {
+    if (!selectedResidentForLedger) return;
+    const element = document.getElementById('ledger-render');
+    if (!element) return;
+    downloadPDF('ledger-render', `Ledger_${selectedResidentForLedger.unitNumber}_${ledgerPeriod.from}_${ledgerPeriod.to}.pdf`);
+    setIsLedgerPrintOpen(false);
   };
 
   const handleGenerate = (e: React.FormEvent) => {
@@ -190,6 +197,35 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     const date = new Date(monthStr + '-01');
     return date.toLocaleDateString('default', { month: 'long', year: 'numeric' });
   };
+
+  const ledgerData = useMemo(() => {
+    if (!selectedResidentForLedger) return [];
+    const memberBills = bills.filter(b => 
+        b.residentId === selectedResidentForLedger.id &&
+        b.generatedDate >= ledgerPeriod.from &&
+        b.generatedDate <= ledgerPeriod.to
+    );
+    
+    const transactions: any[] = [];
+    memberBills.forEach(b => {
+        transactions.push({
+            date: b.generatedDate,
+            description: `Maintenance Bill - ${formatBillingMonth(b.billMonth)}`,
+            debit: b.totalAmount,
+            credit: 0
+        });
+        if (b.status === PaymentStatus.PAID && b.paymentDetails) {
+            transactions.push({
+                date: b.paymentDetails.date,
+                description: `Payment Received (${b.paymentDetails.mode}) - Ref: ${b.paymentDetails.reference}`,
+                debit: 0,
+                credit: b.totalAmount
+            });
+        }
+    });
+
+    return transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [selectedResidentForLedger, ledgerPeriod, bills]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -248,11 +284,13 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                 <span className={`px-2 py-1 rounded-full text-[10px] font-black border uppercase ${bill.status === PaymentStatus.PAID ? 'bg-green-100 text-green-700 border-green-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
                     {bill.status}
                 </span>
-                {bill.status === PaymentStatus.OVERDUE && (
-                    <button onClick={() => handleArrearsAi(bill)} className="text-[9px] font-black text-indigo-600 flex items-center gap-1 hover:underline">
-                        <Sparkles size={10} /> AI RECOVERY
-                    </button>
-                )}
+                <button 
+                    onClick={() => handleOpenLedgerPrint(bill.residentId)}
+                    className="text-[9px] font-black text-slate-400 flex items-center gap-1 hover:text-indigo-600"
+                    title="Print Personal Ledger"
+                >
+                    <ListOrdered size={10} /> LEDGER
+                </button>
               </div>
             </div>
             <div className="mt-4 border-t border-slate-50 pt-4 flex justify-between items-center">
@@ -265,70 +303,114 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
         ))}
       </div>
 
-      {/* AI ARREARS RECOVERY MODAL */}
-      {isAiPanelOpen && selectedBillForAi && (
-          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[130] backdrop-blur-md p-4">
-              <div className="bg-white rounded-[2.5rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                  <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-8 text-white flex justify-between items-center">
-                      <div className="flex items-center gap-4">
-                          <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md"><Sparkles size={32} /></div>
-                          <div>
-                              <h2 className="text-2xl font-black uppercase tracking-tighter">AI Recovery Assistant</h2>
-                              <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest">Analyzing arrears for {selectedBillForAi.residentName} ({selectedBillForAi.unitNumber})</p>
-                          </div>
+      {/* MEMBER LEDGER PRINT MODAL */}
+      {isLedgerPrintOpen && selectedResidentForLedger && (
+          <div className="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[150] backdrop-blur-md p-4">
+              <div className="bg-white rounded-[2rem] w-full max-w-4xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+                  <div className="bg-indigo-700 p-6 text-white flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                          <Printer size={24} />
+                          <h3 className="text-xl font-black uppercase tracking-tighter">Print Member Ledger</h3>
                       </div>
-                      <button onClick={() => setIsAiPanelOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors"><X size={28}/></button>
+                      <button onClick={() => setIsLedgerPrintOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X /></button>
                   </div>
-                  
-                  <div className="p-8 flex flex-col lg:flex-row gap-10">
-                      <div className="flex-1 space-y-6">
-                          <div className="grid grid-cols-2 gap-4">
-                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Arrears Amount</p>
-                                  <p className="text-2xl font-black text-red-600">₹{selectedBillForAi.totalAmount.toLocaleString()}</p>
-                              </div>
-                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                                  <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Due Date</p>
-                                  <p className="text-2xl font-black text-slate-800">{selectedBillForAi.dueDate}</p>
-                              </div>
+                  <div className="p-8 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                          <div className="md:col-span-1">
+                              <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Member</p>
+                              <p className="font-bold text-slate-800">{selectedResidentForLedger.name}</p>
+                              <p className="text-sm text-indigo-600 font-bold">{selectedResidentForLedger.unitNumber}</p>
                           </div>
-
-                          <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100">
-                              <h4 className="text-xs font-black text-indigo-700 uppercase tracking-widest mb-4 flex items-center gap-2"><Wand2 size={16}/> AI Recovery Logic</h4>
-                              <p className="text-sm text-indigo-900 leading-relaxed font-medium italic">
-                                  "Our AI suggests a two-pronged approach: A personalized gentle nudge via WhatsApp followed by a formal society notice if payment isn't cleared within 48 hours."
-                              </p>
+                          <div>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">From Date</label>
+                              <input type="date" className="w-full p-2 border border-slate-200 rounded-lg font-bold" value={ledgerPeriod.from} onChange={e => setLedgerPeriod({...ledgerPeriod, from: e.target.value})} />
                           </div>
-
-                          <div className="flex gap-4">
-                              <button onClick={() => handleArrearsAi(selectedBillForAi)} className="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 shadow-xl transition-all flex items-center justify-center gap-2">
-                                  <RefreshCcw size={18} /> Regenerate Strategy
-                              </button>
+                          <div>
+                              <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">To Date</label>
+                              <input type="date" className="w-full p-2 border border-slate-200 rounded-lg font-bold" value={ledgerPeriod.to} onChange={e => setLedgerPeriod({...ledgerPeriod, to: e.target.value})} />
                           </div>
                       </div>
 
-                      <div className="w-full lg:w-96 flex flex-col">
-                          <div className="flex-1 bg-slate-900 rounded-[2rem] p-6 text-slate-300 font-mono text-[11px] leading-loose overflow-y-auto max-h-[400px] border border-slate-800 shadow-inner relative custom-scrollbar">
-                              {aiLoading ? (
-                                  <div className="h-full flex flex-col items-center justify-center space-y-4">
-                                      <Loader2 className="animate-spin text-indigo-500" size={40} />
-                                      <p className="text-indigo-400 font-black animate-pulse uppercase text-[10px]">Analyzing Arrears Patterns...</p>
-                                  </div>
-                              ) : (
-                                  <div className="animate-fade-in">
-                                      {aiResult}
-                                  </div>
-                              )}
-                          </div>
-                          <div className="mt-4 flex gap-2">
-                             <button className="flex-1 bg-green-600 text-white py-3 rounded-xl font-black text-xs uppercase flex items-center justify-center gap-2 hover:bg-green-700">
-                                 <MessageSquare size={16} /> WhatsApp Member
-                             </button>
-                             <button className="p-3 bg-slate-100 text-slate-600 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
-                                 <Send size={18} />
-                             </button>
+                      <div className="max-h-[40vh] overflow-y-auto border border-slate-100 rounded-xl">
+                          <table className="w-full text-sm">
+                              <thead className="bg-slate-100 sticky top-0">
+                                  <tr>
+                                      <th className="p-3 text-left">Date</th>
+                                      <th className="p-3 text-left">Description</th>
+                                      <th className="p-3 text-right">Debit (₹)</th>
+                                      <th className="p-3 text-right">Credit (₹)</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {ledgerData.map((txn, i) => (
+                                      <tr key={i} className="border-b border-slate-50">
+                                          <td className="p-3">{txn.date}</td>
+                                          <td className="p-3 font-medium">{txn.description}</td>
+                                          <td className="p-3 text-right text-red-600 font-bold">{txn.debit ? txn.debit.toLocaleString() : '-'}</td>
+                                          <td className="p-3 text-right text-green-600 font-bold">{txn.credit ? txn.credit.toLocaleString() : '-'}</td>
+                                      </tr>
+                                  ))}
+                                  {ledgerData.length === 0 && (
+                                      <tr><td colSpan={4} className="p-10 text-center text-slate-400">No transactions in selected period.</td></tr>
+                                  )}
+                              </tbody>
+                          </table>
+                      </div>
+
+                      {/* Hidden Ledger Rendering for PDF */}
+                      <div className="hidden">
+                          <div id="ledger-render" className="p-12 text-slate-800 bg-white w-[210mm] min-h-[297mm]">
+                              <div className="text-center border-b-2 border-slate-800 pb-4 mb-8">
+                                  <h1 className="text-2xl font-bold uppercase">{activeSociety.name}</h1>
+                                  <p className="text-sm">{activeSociety.address}</p>
+                                  <h2 className="text-lg font-black mt-4 underline">MEMBER PERSONAL LEDGER</h2>
+                                  <p className="text-xs mt-1">Period: {ledgerPeriod.from} to {ledgerPeriod.to}</p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 mb-8 font-bold">
+                                  <div>Member: {selectedResidentForLedger.name}</div>
+                                  <div className="text-right">Unit No: {selectedResidentForLedger.unitNumber}</div>
+                              </div>
+                              <table className="w-full border-collapse border border-slate-800 text-sm">
+                                  <thead>
+                                      <tr className="bg-slate-100">
+                                          <th className="border border-slate-800 p-2">Date</th>
+                                          <th className="border border-slate-800 p-2 text-left">Particulars</th>
+                                          <th className="border border-slate-800 p-2 text-right">Debit</th>
+                                          <th className="border border-slate-800 p-2 text-right">Credit</th>
+                                          <th className="border border-slate-800 p-2 text-right">Balance</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      <tr className="italic">
+                                          <td className="border border-slate-800 p-2 text-center">-</td>
+                                          <td className="border border-slate-800 p-2">Opening Balance</td>
+                                          <td className="border border-slate-800 p-2 text-right">-</td>
+                                          <td className="border border-slate-800 p-2 text-right">-</td>
+                                          <td className="border border-slate-800 p-2 text-right">₹ {selectedResidentForLedger.openingBalance.toLocaleString()}</td>
+                                      </tr>
+                                      {ledgerData.map((txn, i) => (
+                                          <tr key={i}>
+                                              <td className="border border-slate-800 p-2 text-center">{txn.date}</td>
+                                              <td className="border border-slate-800 p-2">{txn.description}</td>
+                                              <td className="border border-slate-800 p-2 text-right">{txn.debit ? `₹ ${txn.debit.toLocaleString()}` : '-'}</td>
+                                              <td className="border border-slate-800 p-2 text-right">{txn.credit ? `₹ ${txn.credit.toLocaleString()}` : '-'}</td>
+                                              <td className="border border-slate-800 p-2 text-right">-</td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                              <div className="mt-20 flex justify-between">
+                                  <div className="text-center w-40 border-t border-slate-500 pt-1 text-xs">Secretary</div>
+                                  <div className="text-center w-40 border-t border-slate-500 pt-1 text-xs">Treasurer</div>
+                              </div>
                           </div>
                       </div>
+                  </div>
+                  <div className="p-6 border-t bg-slate-50 flex justify-end gap-3">
+                      <button onClick={() => setIsLedgerPrintOpen(false)} className="px-6 py-2 text-slate-500 font-bold">Cancel</button>
+                      <button onClick={handleGenerateLedgerPDF} className="bg-indigo-600 text-white px-8 py-2 rounded-xl font-black uppercase text-xs tracking-widest flex items-center gap-2 hover:bg-indigo-700 shadow-xl">
+                          <Download size={16} /> Download Ledger PDF
+                      </button>
                   </div>
               </div>
           </div>
@@ -428,14 +510,13 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                         </div>
 
                         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><LayoutTemplate size={14} /> Preview Style Templates</h4>
+                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><LayoutTemplate size={14} /> Official Format Selection</h4>
                              <div className="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
                                 {[
-                                    { id: 'MODERN', label: 'Bill for this Month (Modern)', desc: 'Clean layout for current charges only.' },
-                                    { id: 'SPLIT_RECEIPT', label: 'Bill Top + Previous Receipt Down', desc: 'Combined invoice with payment proof.' },
+                                    { id: 'MODERN', label: 'Top Bill Only', desc: 'Standard professional invoice layout.' },
+                                    { id: 'SPLIT_RECEIPT', label: 'Bottom Previous Month Receipt', desc: 'Combined invoice with payment acknowledgment at the footer.' },
                                     { id: 'CLASSIC', label: 'Classic Ledger / Corporate', desc: 'Formal business invoice format.' },
-                                    { id: 'LEDGER', label: 'Detailed Member Ledger View', desc: 'Shows transactional history on bill.' },
-                                    { id: 'MINIMAL', label: 'Blank Receipt (Manual Entry)', desc: 'Empty template for handwritten entries.' }
+                                    { id: 'LEDGER', label: 'Detailed Member Ledger View', desc: 'Shows transactional history on bill.' }
                                 ].map(tpl => (
                                     <button 
                                         key={tpl.id}
@@ -482,152 +563,142 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
            </div>
 
            <div id="invoice-render" className="bg-white w-[210mm] min-h-[297mm] shadow-2xl mx-auto flex flex-col text-slate-800 relative">
-                {activeSociety.billLayout?.template === 'MINIMAL' ? (
-                    <div className="p-16 flex flex-col h-full items-center justify-center text-center opacity-30">
-                         <div className="border-4 border-dashed border-slate-300 rounded-[4rem] p-24">
-                            <Receipt size={120} className="mx-auto mb-8 text-slate-300" />
-                            <h2 className="text-5xl font-black uppercase text-slate-400 tracking-tighter">Blank Society Receipt</h2>
-                            <p className="mt-6 text-slate-400 font-bold uppercase tracking-widest text-sm">Official Format for Manual Endorsement</p>
+                <div className="p-12 flex-1 flex flex-col">
+                    <div className="flex justify-between items-start border-b-4 border-indigo-600 pb-8 mb-10">
+                        <div className="flex items-start gap-6">
+                            {activeSociety.billLayout?.logo && (
+                                <div className="h-28 w-28 bg-white rounded-2xl p-1 flex items-center justify-center overflow-hidden border-2 border-slate-50 shadow-sm shrink-0">
+                                    <img src={activeSociety.billLayout.logo} className="max-h-full max-w-full object-contain" />
+                                </div>
+                            )}
+                            <div className="max-w-md">
+                                <h1 className="text-3xl font-black text-indigo-700 tracking-tighter uppercase leading-none">{activeSociety.name}</h1>
+                                <p className="text-xs text-slate-500 mt-3 font-bold leading-relaxed">{activeSociety.address}</p>
+                                <div className="flex gap-4 mt-4 text-[10px] font-black uppercase text-slate-400 tracking-widest bg-slate-50 inline-flex px-3 py-1 rounded-full border border-slate-100">
+                                    <span>REG: {activeSociety.registrationNumber}</span>
+                                    <span className="w-px h-3 bg-slate-300"></span>
+                                    <span className="text-indigo-600">GST: {activeSociety.gstNumber || 'UNREGISTERED'}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none opacity-10">INVOICE</h2>
+                            <div className="mt-8 space-y-1">
+                                <p className="text-xs font-black uppercase text-indigo-600 tracking-widest">Bill Period</p>
+                                <p className="text-xl font-black text-slate-800">{formatBillingMonth(previewBill.billMonth)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 mb-10 bg-indigo-50/50 p-8 rounded-[2.5rem] border border-indigo-100">
+                        <div>
+                            <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Member / Payee</h4>
+                            <p className="text-2xl font-black text-slate-800 leading-tight">{previewBill.residentName}</p>
+                            <p className="text-sm font-bold text-indigo-600 mt-1">FLAT / UNIT NO: {previewBill.unitNumber}</p>
+                        </div>
+                        <div className="text-right">
+                            <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Billing Reference</h4>
+                            <p className="text-sm font-bold text-slate-700">Invoice No: <span className="font-mono text-indigo-600">{previewBill.id}</span></p>
+                            <p className="text-sm font-bold text-slate-700 mt-1">Due Date: <span className="text-red-600 font-black underline decoration-2">{previewBill.dueDate}</span></p>
+                        </div>
+                    </div>
+
+                    <table className="w-full mb-10 border-collapse">
+                        <thead>
+                            <tr className="bg-slate-900 text-white">
+                                {activeSociety.billLayout?.columns.description && <th className="p-4 text-left uppercase text-[10px] tracking-widest font-black">Particulars / Charges</th>}
+                                {activeSociety.billLayout?.columns.type && <th className="p-4 text-center uppercase text-[10px] tracking-widest font-black">Type</th>}
+                                {activeSociety.billLayout?.columns.rate && <th className="p-4 text-right uppercase text-[10px] tracking-widest font-black">Rate / Unit</th>}
+                                {activeSociety.billLayout?.columns.amount && <th className="p-4 text-right uppercase text-[10px] tracking-widest font-black">Net Amount</th>}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {previewBill.items.map((item, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                    {activeSociety.billLayout?.columns.description && <td className="p-5 font-bold text-slate-700 text-sm">{item.description}</td>}
+                                    {activeSociety.billLayout?.columns.type && <td className="p-5 text-center text-[10px] font-black text-slate-400 uppercase">{item.type}</td>}
+                                    {activeSociety.billLayout?.columns.rate && <td className="p-5 text-right font-medium text-slate-500 text-sm">₹{item.rate.toLocaleString()}</td>}
+                                    {activeSociety.billLayout?.columns.amount && <td className="p-5 text-right font-black text-slate-900 text-sm">₹{item.amount.toLocaleString()}</td>}
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot className="border-t-2 border-slate-900">
+                            <tr className="bg-slate-50">
+                                <td colSpan={Object.values(activeSociety.billLayout?.columns || {}).filter(v => v).length - 1} className="p-5 text-right text-slate-400 uppercase tracking-widest text-[10px] font-black">Total Principal Charges</td>
+                                <td className="p-5 text-right text-slate-700 font-bold">₹{previewBill.items.reduce((s, i) => s + i.amount, 0).toLocaleString()}</td>
+                            </tr>
+                            {previewBill.gstAmount ? (
+                                <tr className="text-indigo-600 font-bold">
+                                    <td colSpan={Object.values(activeSociety.billLayout?.columns || {}).filter(v => v).length - 1} className="p-4 text-right text-[10px] uppercase tracking-widest">Tax Inclusion (GST {activeSociety.gstPercentage}%)</td>
+                                    <td className="p-4 text-right">₹{previewBill.gstAmount.toLocaleString()}</td>
+                                </tr>
+                            ) : null}
+                            <tr className="bg-indigo-600 text-white font-black text-3xl">
+                                <td colSpan={Object.values(activeSociety.billLayout?.columns || {}).filter(v => v).length - 1} className="p-6 text-right uppercase tracking-tighter">Gross Amount Payable</td>
+                                <td className="p-6 text-right">₹{previewBill.totalAmount.toLocaleString()}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    {activeSociety.billLayout?.template === 'SPLIT_RECEIPT' && lastReceipt && (
+                        <div className="mt-12 pt-12 border-t-8 border-dashed border-slate-100 animate-in slide-in-from-bottom-8 duration-700">
+                            <div className="bg-emerald-50/50 p-10 rounded-[3rem] border-2 border-emerald-100 relative overflow-hidden">
+                                <div className="absolute top-6 right-10 bg-emerald-600 text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">Last Transaction Receipt</div>
+                                <h4 className="text-xl font-black text-emerald-900 mb-6 flex items-center gap-3"><Check className="text-emerald-600" size={28} /> Payment Acknowledgment</h4>
+                                <div className="grid grid-cols-2 gap-10">
+                                    <div className="space-y-4">
+                                        <p className="text-sm leading-relaxed text-emerald-800 font-medium">
+                                            We gratefully acknowledge receipt of <span className="font-black text-emerald-950">₹{lastReceipt.totalAmount.toLocaleString()}</span> against previous month dues.
+                                        </p>
+                                        <div className="flex gap-8 text-[10px] font-black uppercase text-emerald-600/60">
+                                            <span>MODE: {lastReceipt.paymentDetails?.mode}</span>
+                                            <span>REF: {lastReceipt.paymentDetails?.reference}</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right space-y-1">
+                                        <p className="text-[10px] font-black uppercase text-emerald-400">Payment Date</p>
+                                        <p className="text-lg font-black text-emerald-900">{lastReceipt.paymentDetails?.date}</p>
+                                        <p className="text-[10px] font-bold text-emerald-600 italic mt-2">Verified & Processed by System</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeSociety.billLayout?.template === 'LEDGER' && (
+                         <div className="mt-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Member Ledger Quick Reference</h4>
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs font-bold border-b border-slate-200 pb-2">
+                                    <span>Opening Arrears</span>
+                                    <span>₹{previewBill.residentId ? bills.find(b => b.residentId === previewBill.residentId && b.status === PaymentStatus.OVERDUE)?.totalAmount.toLocaleString() || '0' : '0'}</span>
+                                </div>
+                                <div className="flex justify-between text-xs font-black text-indigo-700">
+                                    <span>Current Assessment</span>
+                                    <span>₹{previewBill.totalAmount.toLocaleString()}</span>
+                                </div>
+                            </div>
                          </div>
-                    </div>
-                ) : (
-                    <div className="p-12 flex-1 flex flex-col">
-                        <div className="flex justify-between items-start border-b-4 border-indigo-600 pb-8 mb-10">
-                            <div className="flex items-start gap-6">
-                                {activeSociety.billLayout?.logo && (
-                                    <div className="h-28 w-28 bg-white rounded-2xl p-1 flex items-center justify-center overflow-hidden border-2 border-slate-50 shadow-sm shrink-0">
-                                        <img src={activeSociety.billLayout.logo} className="max-h-full max-w-full object-contain" />
-                                    </div>
-                                )}
-                                <div className="max-w-md">
-                                    <h1 className="text-3xl font-black text-indigo-700 tracking-tighter uppercase leading-none">{activeSociety.name}</h1>
-                                    <p className="text-xs text-slate-500 mt-3 font-bold leading-relaxed">{activeSociety.address}</p>
-                                    <div className="flex gap-4 mt-4 text-[10px] font-black uppercase text-slate-400 tracking-widest bg-slate-50 inline-flex px-3 py-1 rounded-full border border-slate-100">
-                                        <span>REG: {activeSociety.registrationNumber}</span>
-                                        <span className="w-px h-3 bg-slate-300"></span>
-                                        <span className="text-indigo-600">GST: {activeSociety.gstNumber || 'UNREGISTERED'}</span>
-                                    </div>
+                    )}
+
+                    <div className="mt-auto pt-12">
+                        <div className="grid grid-cols-2 gap-12">
+                            <div className="space-y-6">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Important Disclaimers (Footer Notes)</h4>
+                                <div className="space-y-3">
+                                    {(activeSociety.footerNotes || [activeSociety.footerNote]).map((note, idx) => (
+                                        <p key={idx} className="text-[10px] text-slate-500 leading-relaxed font-bold italic border-l-2 border-indigo-100 pl-3"> {note}</p>
+                                    ))}
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-none opacity-10">INVOICE</h2>
-                                <div className="mt-8 space-y-1">
-                                    <p className="text-xs font-black uppercase text-indigo-600 tracking-widest">Bill Period</p>
-                                    <p className="text-xl font-black text-slate-800">{formatBillingMonth(previewBill.billMonth)}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-8 mb-10 bg-indigo-50/50 p-8 rounded-[2.5rem] border border-indigo-100">
-                            <div>
-                                <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Member / Payee</h4>
-                                <p className="text-2xl font-black text-slate-800 leading-tight">{previewBill.residentName}</p>
-                                <p className="text-sm font-bold text-indigo-600 mt-1">FLAT / UNIT NO: {previewBill.unitNumber}</p>
-                            </div>
-                            <div className="text-right">
-                                <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Billing Reference</h4>
-                                <p className="text-sm font-bold text-slate-700">Invoice No: <span className="font-mono text-indigo-600">{previewBill.id}</span></p>
-                                <p className="text-sm font-bold text-slate-700 mt-1">Due Date: <span className="text-red-600 font-black underline decoration-2">{previewBill.dueDate}</span></p>
-                            </div>
-                        </div>
-
-                        <table className="w-full mb-10 border-collapse">
-                            <thead>
-                                <tr className="bg-slate-900 text-white">
-                                    {activeSociety.billLayout?.columns.description && <th className="p-4 text-left uppercase text-[10px] tracking-widest font-black">Particulars / Charges</th>}
-                                    {activeSociety.billLayout?.columns.type && <th className="p-4 text-center uppercase text-[10px] tracking-widest font-black">Type</th>}
-                                    {activeSociety.billLayout?.columns.rate && <th className="p-4 text-right uppercase text-[10px] tracking-widest font-black">Rate / Unit</th>}
-                                    {activeSociety.billLayout?.columns.amount && <th className="p-4 text-right uppercase text-[10px] tracking-widest font-black">Net Amount</th>}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {previewBill.items.map((item, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                        {activeSociety.billLayout?.columns.description && <td className="p-5 font-bold text-slate-700 text-sm">{item.description}</td>}
-                                        {activeSociety.billLayout?.columns.type && <td className="p-5 text-center text-[10px] font-black text-slate-400 uppercase">{item.type}</td>}
-                                        {activeSociety.billLayout?.columns.rate && <td className="p-5 text-right font-medium text-slate-500 text-sm">₹{item.rate.toLocaleString()}</td>}
-                                        {activeSociety.billLayout?.columns.amount && <td className="p-5 text-right font-black text-slate-900 text-sm">₹{item.amount.toLocaleString()}</td>}
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot className="border-t-2 border-slate-900">
-                                <tr className="bg-slate-50">
-                                    <td colSpan={Object.values(activeSociety.billLayout?.columns || {}).filter(v => v).length - 1} className="p-5 text-right text-slate-400 uppercase tracking-widest text-[10px] font-black">Total Principal Charges</td>
-                                    <td className="p-5 text-right text-slate-700 font-bold">₹{previewBill.items.reduce((s, i) => s + i.amount, 0).toLocaleString()}</td>
-                                </tr>
-                                {previewBill.gstAmount ? (
-                                    <tr className="text-indigo-600 font-bold">
-                                        <td colSpan={Object.values(activeSociety.billLayout?.columns || {}).filter(v => v).length - 1} className="p-4 text-right text-[10px] uppercase tracking-widest">Tax Inclusion (GST {activeSociety.gstPercentage}%)</td>
-                                        <td className="p-4 text-right">₹{previewBill.gstAmount.toLocaleString()}</td>
-                                    </tr>
-                                ) : null}
-                                <tr className="bg-indigo-600 text-white font-black text-3xl">
-                                    <td colSpan={Object.values(activeSociety.billLayout?.columns || {}).filter(v => v).length - 1} className="p-6 text-right uppercase tracking-tighter">Gross Amount Payable</td>
-                                    <td className="p-6 text-right">₹{previewBill.totalAmount.toLocaleString()}</td>
-                                </tr>
-                            </tfoot>
-                        </table>
-
-                        {activeSociety.billLayout?.template === 'SPLIT_RECEIPT' && lastReceipt && (
-                            <div className="mt-12 pt-12 border-t-8 border-dashed border-slate-100 animate-in slide-in-from-bottom-8 duration-700">
-                                <div className="bg-emerald-50/50 p-10 rounded-[3rem] border-2 border-emerald-100 relative overflow-hidden">
-                                    <div className="absolute top-6 right-10 bg-emerald-600 text-white px-5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">Last Transaction Receipt</div>
-                                    <h4 className="text-xl font-black text-emerald-900 mb-6 flex items-center gap-3"><Check className="text-emerald-600" size={28} /> Payment Acknowledgment</h4>
-                                    <div className="grid grid-cols-2 gap-10">
-                                        <div className="space-y-4">
-                                            <p className="text-sm leading-relaxed text-emerald-800 font-medium">
-                                                We gratefully acknowledge receipt of <span className="font-black text-emerald-950">₹{lastReceipt.totalAmount.toLocaleString()}</span> against previous month dues.
-                                            </p>
-                                            <div className="flex gap-8 text-[10px] font-black uppercase text-emerald-600/60">
-                                                <span>MODE: {lastReceipt.paymentDetails?.mode}</span>
-                                                <span>REF: {lastReceipt.paymentDetails?.reference}</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-right space-y-1">
-                                            <p className="text-[10px] font-black uppercase text-emerald-400">Payment Date</p>
-                                            <p className="text-lg font-black text-emerald-900">{lastReceipt.paymentDetails?.date}</p>
-                                            <p className="text-[10px] font-bold text-emerald-600 italic mt-2">Verified & Processed by System</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeSociety.billLayout?.template === 'LEDGER' && (
-                             <div className="mt-8 p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Member Ledger Quick Reference</h4>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs font-bold border-b border-slate-200 pb-2">
-                                        <span>Opening Arrears</span>
-                                        <span>₹{previewBill.residentId ? bills.find(b => b.residentId === previewBill.residentId && b.status === PaymentStatus.OVERDUE)?.totalAmount.toLocaleString() || '0' : '0'}</span>
-                                    </div>
-                                    <div className="flex justify-between text-xs font-black text-indigo-700">
-                                        <span>Current Assessment</span>
-                                        <span>₹{previewBill.totalAmount.toLocaleString()}</span>
-                                    </div>
-                                </div>
-                             </div>
-                        )}
-
-                        <div className="mt-auto pt-12">
-                            <div className="grid grid-cols-2 gap-12">
-                                <div className="space-y-6">
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Important Disclaimers</h4>
-                                    <div className="space-y-3">
-                                        {(activeSociety.footerNotes || [activeSociety.footerNote]).map((note, idx) => (
-                                            <p key={idx} className="text-[10px] text-slate-500 leading-relaxed font-bold italic border-l-2 border-indigo-100 pl-3"> {note}</p>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end justify-end">
-                                    <div className="h-20 w-56 border-b-2 border-slate-300 mb-3 flex items-center justify-center italic text-slate-300 text-[10px] font-black uppercase tracking-[0.3em]">Signature</div>
-                                    <p className="text-xs font-black uppercase tracking-widest text-slate-900">{activeSociety.processedBy}</p>
-                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Authorized Official Signatory</p>
-                                </div>
+                            <div className="flex flex-col items-end justify-end">
+                                <div className="h-20 w-56 border-b-2 border-slate-300 mb-3 flex items-center justify-center italic text-slate-300 text-[10px] font-black uppercase tracking-[0.3em]">Signature</div>
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-900">{activeSociety.processedBy}</p>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Authorized Official Signatory</p>
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
                 <div className="h-10 bg-indigo-600 w-full flex items-center justify-between px-12 text-[9px] text-indigo-100 font-black uppercase tracking-[0.2em]">
                     <span>Securely Generated by SocietyLink OS</span>
                     <div className="flex gap-6">
