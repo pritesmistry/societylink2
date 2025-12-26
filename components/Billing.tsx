@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Bill, PaymentStatus, Resident, BillItem, Society, BillLayout, PaymentDetails } from '../types';
-import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical, Sparkles, Wand2, MessageSquare, Send, Search, Printer, ListOrdered } from 'lucide-react';
+import { FileText, Plus, Trash2, IndianRupee, AlertCircle, Upload, Users, Download, Clock, Settings, FileDown, Eye, Check, CreditCard, Receipt, CalendarRange, QrCode, ExternalLink, Image as ImageIcon, Save, Scissors, LayoutTemplate, X, MessageSquarePlus, Calendar, Layers, User, ShieldCheck, Percent, Zap, Lock, Shield, ArrowRight, Loader2, Smartphone, Landmark, RefreshCcw, Info, ToggleLeft, Columns, GripVertical, Sparkles, Wand2, MessageSquare, Send, Search, Printer, ListOrdered, Share2, MessageCircle } from 'lucide-react';
 import StandardToolbar from './StandardToolbar';
 import { generateArrearsRecoveryStrategy } from '../services/geminiService';
 
@@ -147,6 +147,26 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
     if (!element) return;
     downloadPDF('ledger-render', `Ledger_${selectedResidentForLedger.unitNumber}_${ledgerPeriod.from}_${ledgerPeriod.to}.pdf`);
     setIsLedgerPrintOpen(false);
+  };
+
+  const handleSendLedgerLink = () => {
+      if (!selectedResidentForLedger) return;
+      
+      const phone = selectedResidentForLedger.whatsappNumber || selectedResidentForLedger.contact;
+      if (!phone) {
+          alert("Member does not have a contact number saved.");
+          return;
+      }
+
+      // Calculate total outstanding for the message
+      const totalOutstanding = bills
+        .filter(b => b.residentId === selectedResidentForLedger.id && b.status !== PaymentStatus.PAID)
+        .reduce((sum, b) => sum + b.totalAmount, 0) + selectedResidentForLedger.openingBalance;
+
+      const message = `Hello ${selectedResidentForLedger.name},\n\nPlease find your official Member Ledger Statement for the period ${ledgerPeriod.from} to ${ledgerPeriod.to}.\n\nTotal Current Outstanding: ₹${totalOutstanding.toLocaleString()}\n\nClick here to view your secure ledger: https://societylink.io/ledger/${selectedResidentForLedger.id}/${activeSociety.id}\n\nWarm Regards,\n${activeSociety.name}`;
+      
+      const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
   };
 
   const handleGenerate = (e: React.FormEvent) => {
@@ -310,7 +330,7 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                   <div className="bg-indigo-700 p-6 text-white flex justify-between items-center">
                       <div className="flex items-center gap-3">
                           <Printer size={24} />
-                          <h3 className="text-xl font-black uppercase tracking-tighter">Print Member Ledger</h3>
+                          <h3 className="text-xl font-black uppercase tracking-tighter">Member Ledger Statement</h3>
                       </div>
                       <button onClick={() => setIsLedgerPrintOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X /></button>
                   </div>
@@ -408,6 +428,12 @@ const Billing: React.FC<BillingProps> = ({ bills, residents, societyId, activeSo
                   </div>
                   <div className="p-6 border-t bg-slate-50 flex justify-end gap-3">
                       <button onClick={() => setIsLedgerPrintOpen(false)} className="px-6 py-2 text-slate-500 font-bold">Cancel</button>
+                      <button 
+                        onClick={handleSendLedgerLink} 
+                        className="bg-green-600 text-white px-8 py-2 rounded-xl font-black uppercase text-xs tracking-widest flex items-center gap-2 hover:bg-green-700 shadow-xl transition-all"
+                      >
+                          <MessageCircle size={16} /> Send Link (WhatsApp)
+                      </button>
                       <button onClick={handleGenerateLedgerPDF} className="bg-indigo-600 text-white px-8 py-2 rounded-xl font-black uppercase text-xs tracking-widest flex items-center gap-2 hover:bg-indigo-700 shadow-xl">
                           <Download size={16} /> Download Ledger PDF
                       </button>
